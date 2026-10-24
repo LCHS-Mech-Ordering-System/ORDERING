@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .top-nav { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 10px 10px; margin-bottom: 25px; }
+    .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .step-section { display: none; }
+    .step-section.active { display: block; }
+    .step-header { font-weight: 600; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+    .app-view { display: none; }
+    .app-view.active { display: block; }
+    .auth-card { max-width: 450px; margin: 40px auto; }
+    
+    /* Steer-style Service Cards */
+    .service-card { border: 2px solid #e2e8f0; border-radius: 10px; padding: 15px; cursor: pointer; transition: all 0.2s ease; background: white; height: 100%; }
+    .service-card:hover { border-color: #0284c7; box-shadow: 0 4px 10px rgba(2, 132, 199, 0.1); }
+    .service-card.selected { border-color: #0284c7; background-color: #f0f9ff; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP NAVIGATION BAR -->
+  <div class="top-nav">
+    <div>
+      <h4 class="mb-0">LCHS Mechanics Shop</h4>
+      <small class="opacity-75">Lacombe Composite High School CTE Program</small>
+    </div>
+    <div id="navButtons" class="d-flex align-items-center gap-2">
+      <button class="btn btn-outline-light btn-sm" onclick="showView('client')">Client Portal</button>
+      <button class="btn btn-outline-light btn-sm" onclick="showLogin('student')">Student Login</button>
+      <button class="btn btn-light btn-sm" onclick="showLogin('teacher')">Teacher Login</button>
+    </div>
+  </div>
+
+  <div class="container mb-5" style="max-width: 950px;">
+
+    <!-- VIEW 1: CLIENT SERVICE INTAKE -->
+    <div id="viewClient" class="app-view active">
+      <div class="card p-4">
+        <form id="workOrderForm" onsubmit="handleFormSubmit(event)">
+          
+          <!-- STEP 1 -->
+          <div id="section-1" class="step-section active">
+            <div class="step-header">Step 1 of 3: Vehicle & Customer Information</div>
+            
+            <div class="mb-4">
+              <label class="form-label font-weight-bold text-dark">Search Vehicle by VIN or Manual Entry</label>
+              <div class="input-group">
+                <input type="text" id="vinInput" class="form-control" placeholder="Enter 17-digit VIN to lookup..." maxlength="17">
+                <button class="btn btn-outline-primary" type="button" onclick="decodeVehicleVIN()">Lookup VIN</button>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-md-3"><label class="form-label">Year *</label><input type="number" id="vehicleYear" class="form-control" placeholder="2018" required></div>
+              <div class="col-md-4"><label class="form-label">Make *</label><input type="text" id="vehicleMake" class="form-control" placeholder="Honda" required></div>
+              <div class="col-md-5"><label class="form-label">Model *</label><input type="text" id="vehicleModel" class="form-control" placeholder="Civic" required></div>
+              <div class="col-md-6"><label class="form-label">Engine Specs</label><input type="text" id="vehicleEngine" class="form-control" placeholder="Auto-filled via VIN"></div>
+              <div class="col-md-6">
+                <label class="form-label">Client Group *</label>
+                <select id="customerType" class="form-select" required>
+                  <option value="Public" selected>Member of Public</option>
+                  <option value="School Staff">School Staff / Teacher</option>
+                  <option value="Student">High School Student</option>
+                </select>
+              </div>
+              <div class="col-md-6"><label class="form-label">Full Name *</label><input type="text" id="customerName" class="form-control" placeholder="Jane Doe" required></div>
+              <div class="col-md-6"><label class="form-label">Email Address *</label><input type="email" id="customerEmail" class="form-control" placeholder="jane@example.com" required></div>
+              <div class="col-md-6"><label class="form-label">Phone Number *</label><input type="tel" id="customerPhone" class="form-control" placeholder="403-555-0199" required></div>
+            </div>
+            <button type="button" class="btn btn-primary w-100" onclick="validateStep1()">Next: Select Service Package</button>
+          </div>
+
+          <!-- STEP 2: STEER-STYLE SERVICE BOOKING -->
+          <div id="section-2" class="step-section">
+            <div class="step-header">Step 2 of 3: Service Package Selection & Schedule</div>
+            
+            <label class="form-label font-weight-bold mb-3">Select Desired Service Menu *</label>
+            <input type="hidden" id="serviceSelect" required>
+            <div id="serviceCardsContainer" class="row g-3 mb-4">
+              <!-- Dynamically populated Steer-style service cards -->
+              <div class="col-12 text-muted">Loading service packages...</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Custom Description / Symptoms</label>
+              <textarea id="customDescription" class="form-control" rows="3" placeholder="Describe specific noises, warning lights, or repairs needed..."></textarea>
+            </div>
+            
+            <div class="mb-4">
+              <label class="form-label">Preferred Drop-off Date * (No past dates allowed)</label>
+              <input type="date" id="preferredDate" class="form-control" required>
+            </div>
+
+            <div class="p-3 bg-light rounded mb-4 border">
+              <div class="d-flex justify-content-between mb-1"><span>Base Rate:</span><span id="dispBase">$0.00</span></div>
+              <div class="d-flex justify-content-between mb-1"><span>Shop Supplies Fee:</span><span id="dispFee">$0.00</span></div>
+              <div class="d-flex justify-content-between mb-1"><span>Subtotal:</span><span id="dispSub">$0.00</span></div>
+              <div class="d-flex justify-content-between mb-1"><span>Alberta GST (5%):</span><span id="dispGST">$0.00</span></div>
+              <hr class="my-2">
+              <div class="d-flex justify-content-between font-weight-bold h5 text-primary"><strong>Estimated Total:</strong><strong id="displayTotal">$0.00</strong></div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-secondary w-50" onclick="goToStep(1)">Back</button>
+              <button type="button" class="btn btn-primary w-50" onclick="validateStep2()">Next: Terms & Authorization</button>
+            </div>
+          </div>
+
+          <!-- STEP 3 -->
+          <div id="section-3" class="step-section">
+            <div class="step-header">Step 3 of 3: Pre-Authorization</div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="workAuthorized" required>
+                <label class="form-check-label" for="workAuthorized">
+                  I authorize LCHS Mechanics to inspect and diagnose. Formal repair work commences only after instructor estimate review and final approval.
+                </label>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label">Digital Signature (Type Full Legal Name) *</label>
+              <input type="text" id="digitalSignature" class="form-control" placeholder="Full Legal Name" required>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-secondary w-50" onclick="goToStep(2)">Back</button>
+              <button type="submit" id="submitBtn" class="btn btn-success w-50">Submit Service Request</button>
+            </div>
+          </div>
+        </form>
+
+        <div id="successMessage" class="text-center py-5 d-none">
+          <h3 class="text-success">Work Order Request Submitted</h3>
+          <p class="lead">Assigned Invoice Number: <strong id="outOrderId" class="text-primary"></strong></p>
+          <button class="btn btn-outline-primary mt-3" onclick="window.location.reload()">Submit Another Request</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: LOGIN FORM PAGE -->
+    <div id="viewLogin" class="app-view">
+      <div class="card p-4 auth-card">
+        <h4 id="loginTitle" class="mb-3 text-primary">Console Login</h4>
+        <div id="loginError" class="alert alert-danger d-none py-2 small"></div>
+        <input type="hidden" id="loginRole" value="teacher">
+        
+        <div class="mb-3">
+          <label class="form-label">Registered Email Address *</label>
+          <input type="email" id="loginEmail" class="form-control" placeholder="e.g. name@lchs.ca" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Desk / Station Number *</label>
+          <input type="text" id="loginDesk" class="form-control" placeholder="e.g. DESK-101 or 101" required>
+        </div>
+        <button type="button" id="loginSubmitBtn" class="btn btn-primary w-100" onclick="performLogin()">Authenticate Credentials</button>
+      </div>
+    </div>
+
+    <!-- VIEW 3: TEACHER DASHBOARD -->
+    <div id="viewTeacher" class="app-view">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Instructor Management Console</h2>
+        <button class="btn btn-outline-primary btn-sm" onclick="loadTeacherJobs()">Refresh Orders</button>
+      </div>
+      <div id="teacherJobList" class="row g-3"><p class="text-muted">Loading active work orders...</p></div>
+    </div>
+
+    <!-- VIEW 4: STUDENT TERMINAL -->
+    <div id="viewStudent" class="app-view">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Student Shop Floor Terminal</h2>
+        <button class="btn btn-outline-success btn-sm" onclick="loadStudentJobs()">Refresh Terminal</button>
+      </div>
+      <div id="studentJobList" class="row g-3"><p class="text-muted">Loading assigned shop vehicles...</p></div>
+    </div>
+
+  </div>
+
+  <!-- TEACHER EDITOR MODAL -->
+  <div class="modal fade" id="editorModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title">Work Order and Invoice Editor</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editRow">
+          <input type="hidden" id="editOrderId">
+          
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label">Decision Action *</label>
+              <select id="editDecisionAction" class="form-select" onchange="toggleDecisionUI()">
+                <option value="ACCEPT">✓ Accept Work and Schedule Time</option>
+                <option value="COUNTER">– Accept Work but Propose New Date</option>
+                <option value="REJECT">✕ Decline / Reject Work Request</option>
+              </select>
+            </div>
+            <div class="col-md-4" id="counterDateCol" style="display: none;">
+              <label class="form-label">Proposed New Drop-off Date *</label>
+              <input type="date" id="editNewDate" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Assigned Student Technicians</label>
+              <input type="text" id="editStudentAssigned" class="form-control" placeholder="Type student names/emails...">
+            </div>
+          </div>
+
+          <h6>Itemized Services & Compatible Parts</h6>
+          <table class="table table-bordered mb-2">
+            <thead class="table-light">
+              <tr><th>Item Type</th><th>Description / Part Name</th><th style="width: 130px;">Price ($)</th><th style="width: 60px;">Action</th></tr>
+            </thead>
+            <tbody id="lineItemsTableBody"></tbody>
+          </table>
+
+          <div class="row g-2 mb-4">
+            <div class="col-md-5">
+              <select id="catalogPartsDropdown" class="form-select form-select-sm" onchange="addSelectedCatalogPart()">
+                <option value="">-- Add Compatible Part from Catalog --</option>
+              </select>
+            </div>
+            <div class="col-md-7 text-end">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="addLineItem('Labor', 'Custom Labor Charge', 0)">+ Add Custom Labor</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLineItem('Part', 'Custom Part', 0)">+ Add Custom Part</button>
+            </div>
+          </div>
+
+          <div class="row border-top pt-3">
+            <div class="col-md-6">
+              <label class="form-label">Instructor Notes / Rejection Reason</label>
+              <textarea id="editNotes" class="form-control" rows="4" placeholder="Notes for customer email or student shop file..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <div class="bg-light p-3 rounded border">
+                <div class="d-flex justify-content-between mb-2"><span>Items Subtotal:</span><strong id="calcItemsSub">$0.00</strong></div>
+                <div class="d-flex justify-content-between mb-2 align-items-center">
+                  <span>Shop Supplies Fee ($):</span>
+                  <input type="number" id="calcShopFee" class="form-control form-control-sm text-end" style="width: 100px;" value="10.00" oninput="recalculateInvoice()">
+                </div>
+                <div class="d-flex justify-content-between mb-2 align-items-center">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="calcGstToggle" checked onchange="recalculateInvoice()">
+                    <label class="form-check-label small" for="calcGstToggle">Apply 5% GST</label>
+                  </div>
+                  <strong id="calcGst">$0.00</strong>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between h5 text-primary mb-0"><strong>Total Amount Due:</strong><strong id="calcTotal">$0.00</strong></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-success" onclick="saveAndProcessDecision()">Save and Dispatch Email</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUDENT REPAIR LOG MODAL -->
+  <div class="modal fade" id="studentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Repair Work Order Log</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="sRow">
+          <input type="hidden" id="sOrderId">
+          <div class="p-3 bg-light border rounded mb-3">
+            <h5 id="sOrderIdDisplay" class="text-success mb-1">WO-2026-00000</h5>
+            <p class="mb-0">Vehicle: <strong id="sVehicle"></strong></p>
+          </div>
+          <h6>Line Items and Logged Parts Used</h6>
+          <table class="table table-bordered mb-2">
+            <thead class="table-light">
+              <tr><th>Item Type</th><th>Description / Part Name</th><th style="width: 120px;">Price ($)</th><th style="width: 50px;">Action</th></tr>
+            </thead>
+            <tbody id="sLineItemsBody"></tbody>
+          </table>
+          <button type="button" class="btn btn-sm btn-outline-success mb-3" onclick="addStudentLineItem('Part', 'Replacement Part', 0)">+ Add Logged Repair Part</button>
+          <div class="mb-3">
+            <label class="form-label">Technician Repair Notes / Completion Summary</label>
+            <textarea id="sNotes" class="form-control" rows="3" placeholder="Describe work performed, torque specs checked..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" onclick="saveStudentDraft()">Save Draft for Review</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const WORKER_BASE = 'https://form-handler.oehlerking-w.workers.dev';
+
+    let portalData = { services: [], settings: { gstRate: 0.05, shopFee: 10.0 } };
+    let teacherJobs = [];
+    let studentJobs = [];
+    let catalogParts = [];
+    let currentEditingJob = null;
+    let currentStudentJob = null;
+    let currentUser = null;
+
+    window.onload = function() {
+      const todayStr = new Date().toISOString().split('T')[0];
+      document.getElementById('preferredDate').min = todayStr;
+
+      fetch(`${WORKER_BASE}/api/getPortalData`)
+        .then(async res => {
+          const text = await res.text();
+          try {
+            const data = JSON.parse(text);
+            if (!res.ok) {
+              console.error("API Error Response:", data);
+              alert("Failed to load portal data: " + (data.message || res.statusText));
+              return;
+            }
+            initPortal(data);
+          } catch (e) {
+            console.error("Non-JSON Response received:", text);
+            alert("Server error. Check console for details.");
+          }
+        })
+        .catch(err => {
+          console.error("Network or Fetch Error:", err);
+          alert("Could not connect to the backend worker.");
+        });
+    };
+
+    function initPortal(data) {
+      portalData = data;
+      catalogParts = data.parts || [];
+      
+      // Render Steer-style service booking cards
+      let container = document.getElementById('serviceCardsContainer');
+      container.innerHTML = '';
+      
+      if (!data.services || data.services.length === 0) {
+        container.innerHTML = '<div class="col-12 text-muted">No service packages available.</div>';
+        return;
+      }
+
+      data.services.forEach(s => {
+        let price = Number(s.basePrice || 0);
+        let hours = Number(s.estimatedLaborHours || 1);
+        let category = s.category || 'General Repair';
+        
+        let col = document.createElement('div');
+        col.className = 'col-md-6';
+        col.innerHTML = `
+          <div class="service-card" onclick="selectServiceCard(this, '${s.name}', ${price})">
+            <div class="d-flex justify-content-between align-items-start mb-1">
+              <h6 class="font-weight-bold text-dark mb-0">${s.name}</h6>
+              <span class="badge bg-primary">$${price.toFixed(2)}</span>
+            </div>
+            <small class="text-muted d-block mb-2">Category: ${category} &bull; Est. ${hours} hr(s)</small>
+          </div>
+        `;
+        container.appendChild(col);
+      });
+      calculatePrices();
+    }
+
+    function selectServiceCard(cardElement, serviceName, servicePrice) {
+      document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
+      cardElement.classList.add('selected');
+      document.getElementById('serviceSelect').value = serviceName;
+      calculatePrices();
+    }
+
+    function resetNavButtons() {
+      let nav = document.getElementById('navButtons');
+      nav.innerHTML = `
+        <button class="btn btn-outline-light btn-sm" onclick="showView('client')">Client Portal</button>
+        <button class="btn btn-outline-light btn-sm" onclick="showLogin('student')">Student Login</button>
+        <button class="btn btn-light btn-sm" onclick="showLogin('teacher')">Teacher Login</button>
+      `;
+    }
+
+    function setLoggedInNav(userName) {
+      let nav = document.getElementById('navButtons');
+      nav.innerHTML = `
+        <span class="text-light me-2" style="font-size: 0.95rem;">Hi, ${userName}</span>
+        <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+      `;
+    }
+
+    function logout() {
+      currentUser = null;
+      resetNavButtons();
+      showView('client');
+    }
+
+    function showView(viewId) {
+      document.querySelectorAll('.app-view').forEach(el => el.classList.remove('active'));
+      if (viewId === 'client') {
+        resetNavButtons();
+        document.getElementById('viewClient').classList.add('active');
+      }
+      if (viewId === 'teacher') document.getElementById('viewTeacher').classList.add('active');
+      if (viewId === 'student') document.getElementById('viewStudent').classList.add('active');
+    }
+
+    function showLogin(role) {
+      document.querySelectorAll('.app-view').forEach(el => el.classList.remove('active'));
+      document.getElementById('viewLogin').classList.add('active');
+      document.getElementById('loginRole').value = role;
+      document.getElementById('loginTitle').textContent = role === 'teacher' ? 'Teacher Console Login' : 'Student Floor Terminal Login';
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginDesk').value = '';
+      document.getElementById('loginError').classList.add('d-none');
+    }
+
+    function performLogin() {
+      let role = document.getElementById('loginRole').value;
+      let email = document.getElementById('loginEmail').value.trim();
+      let desk = document.getElementById('loginDesk').value.trim();
+      let errorAlert = document.getElementById('loginError');
+      let submitBtn = document.getElementById('loginSubmitBtn');
+
+      if (!email || !desk) {
+        errorAlert.textContent = "Please enter both Email and Desk/Station Number.";
+        errorAlert.classList.remove('d-none');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Authenticating...";
+      errorAlert.classList.add('d-none');
+
+      fetch(`${WORKER_BASE}/api/authenticate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, email, desk })
+      })
+      .then(res => res.json())
+      .then(res => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Authenticate Credentials";
+
+        if (res.success) {
+          currentUser = res.user;
+          setLoggedInNav(res.user.name);
+          if (role === 'teacher') {
+            showView('teacher');
+            loadTeacherJobs();
+          } else {
+            showView('student');
+            loadStudentJobs();
+          }
+        } else {
+          errorAlert.textContent = res.message;
+          errorAlert.classList.remove('d-none');
+        }
+      });
+    }
+
+    function loadTeacherJobs() {
+      document.getElementById('teacherJobList').innerHTML = '<p class="text-muted">Loading active work orders...</p>';
+      fetch(`${WORKER_BASE}/api/getAllShopJobs`)
+        .then(async res => {
+          const text = await res.text();
+          try {
+            const data = JSON.parse(text);
+            if (!res.ok) {
+              document.getElementById('teacherJobList').innerHTML = `<div class="alert alert-danger">Error loading orders: ${data.message || res.statusText}</div>`;
+              return;
+            }
+            renderTeacherJobs(data);
+          } catch (e) {
+            console.error("Parse error:", text);
+            document.getElementById('teacherJobList').innerHTML = `<div class="alert alert-danger">Server returned invalid response. Check console.</div>`;
+          }
+        })
+        .catch(err => {
+          console.error("Fetch error:", err);
+          document.getElementById('teacherJobList').innerHTML = `<div class="alert alert-danger">Network error connecting to backend worker.</div>`;
+        });
+    }
+
+    function renderTeacherJobs(jobs) {
+      teacherJobs = jobs || [];
+      let container = document.getElementById('teacherJobList');
+      
+      if (!teacherJobs || teacherJobs.length === 0) { 
+        container.innerHTML = '<div class="alert alert-info">No work orders recorded.</div>'; 
+        return; 
+      }
+      
+      let html = '';
+      teacherJobs.forEach((j, idx) => {
+        let vehicleStr = `${j.vehicleYear || ''} ${j.vehicleMake || ''} ${j.vehicleModel || ''}`.trim() || 'Vehicle Unspecified';
+        let total = parseFloat(j.totalEstimate) || 0;
+        
+        let statusBadge = '<span class="badge bg-secondary">Requested</span>';
+        if (j.status && j.status.indexOf("Approved") > -1) {
+          statusBadge = '<span class="d-inline-flex align-items-center font-weight-bold text-success"><span class="symbol-badge-green">✓</span> Approved</span>';
+        } else if (j.status && (j.status.indexOf("Reschedule") > -1 || j.status.indexOf("Counter") > -1)) {
+          statusBadge = '<span class="d-inline-flex align-items-center font-weight-bold text-warning"><span class="symbol-badge-yellow">–</span> Counter Proposed</span>';
+        } else if (j.status && (j.status.indexOf("Declined") > -1 || j.status.indexOf("Reject") > -1)) {
+          statusBadge = '<span class="d-inline-flex align-items-center font-weight-bold text-danger"><span class="symbol-badge-red">✕</span> Declined</span>';
+        }
+        
+        html += `
+          <div class="col-md-6">
+            <div class="card p-3 border shadow-sm h-100">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="text-primary mb-0">${j.orderId}</h5>
+                <div>${statusBadge}</div>
+              </div>
+              <p class="mb-1"><strong>Client:</strong> ${j.customerName || 'N/A'}</p>
+              <p class="mb-1"><strong>Vehicle:</strong> ${vehicleStr}</p>
+              <p class="mb-1"><strong>Service:</strong> ${j.service || 'General Service'}</p>
+              <p class="mb-1"><strong>Assigned Tech:</strong> ${j.studentAssigned || 'Unassigned'}</p>
+              <p class="mb-3"><strong>Total Estimate:</strong> $${total.toFixed(2)}</p>
+              <button class="btn btn-sm btn-primary w-100 mt-auto" onclick="openEditorModal(${idx})">Edit Order & Decision</button>
+            </div>
+          </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function openEditorModal(idx) {
+      currentEditingJob = teacherJobs[idx];
+      let j = currentEditingJob;
+
+      document.getElementById('editRow').value = j.row || '';
+      document.getElementById('editOrderId').value = j.orderId || '';
+      document.getElementById('editStudentAssigned').value = j.studentAssigned || '';
+      document.getElementById('editNotes').value = j.notes || '';
+      document.getElementById('calcShopFee').value = j.shopFee !== undefined ? j.shopFee : 10.00;
+
+      let partsSelect = document.getElementById('catalogPartsDropdown');
+      partsSelect.innerHTML = '<option value="">-- Add Compatible Part from Catalog --</option>';
+      catalogParts.forEach(p => {
+        let opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} (${p.category}) - $${Number(p.price).toFixed(2)}`;
+        opt.dataset.name = p.name;
+        opt.dataset.price = p.price;
+        partsSelect.appendChild(opt);
+      });
+
+      let body = document.getElementById('lineItemsTableBody');
+      body.innerHTML = '';
+      let items = j.lineItems && j.lineItems.length > 0 ? j.lineItems : [
+        { type: 'Service', name: j.service, price: (j.subtotal - j.shopFee) > 0 ? (j.subtotal - j.shopFee) : 45.00 }
+      ];
+
+      items.forEach(item => {
+        addLineItem(item.type, item.name, item.price);
+      });
+
+      recalculateInvoice();
+      new bootstrap.Modal(document.getElementById('editorModal')).show();
+    }
+
+    function toggleDecisionUI() {
+      let action = document.getElementById('editDecisionAction').value;
+      document.getElementById('counterDateCol').style.display = action === 'COUNTER' ? 'block' : 'none';
+    }
+
+    function addLineItem(type, name, price) {
+      let body = document.getElementById('lineItemsTableBody');
+      let tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <select class="form-select form-select-sm item-type">
+            <option value="Labor" ${type === 'Labor' ? 'selected' : ''}>Labor / Service</option>
+            <option value="Part" ${type === 'Part' ? 'selected' : ''}>Part / Material</option>
+          </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm item-name" value="${name}"></td>
+        <td><input type="number" class="form-control form-control-sm item-price text-end" value="${Number(price).toFixed(2)}" step="0.01" oninput="recalculateInvoice()"></td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalculateInvoice();">&times;</button></td>
+      `;
+      body.appendChild(tr);
+      recalculateInvoice();
+    }
+
+    function addSelectedCatalogPart() {
+      let select = document.getElementById('catalogPartsDropdown');
+      let opt = select.options[select.selectedIndex];
+      if (opt && opt.value) {
+        addLineItem('Part', opt.dataset.name, parseFloat(opt.dataset.price));
+        select.selectedIndex = 0;
+      }
+    }
+
+    function recalculateInvoice() {
+      let rows = document.querySelectorAll('#lineItemsTableBody tr');
+      let itemsSub = 0;
+
+      rows.forEach(tr => {
+        let price = parseFloat(tr.querySelector('.item-price').value) || 0;
+        itemsSub += price;
+      });
+
+      let shopFee = parseFloat(document.getElementById('calcShopFee').value) || 0;
+      let rawSub = itemsSub + shopFee;
+      let applyGst = document.getElementById('calcGstToggle').checked;
+      let gst = applyGst ? (rawSub * 0.05) : 0;
+      let total = rawSub + gst;
+
+      document.getElementById('calcItemsSub').textContent = `$${itemsSub.toFixed(2)}`;
+      document.getElementById('calcGst').textContent = `$${gst.toFixed(2)}`;
+      document.getElementById('calcTotal').textContent = `$${total.toFixed(2)}`;
+    }
+
+    function saveAndProcessDecision() {
+      let lineItems = [];
+      let partsCost = 0;
+
+      document.querySelectorAll('#lineItemsTableBody tr').forEach(tr => {
+        let type = tr.querySelector('.item-type').value;
+        let name = tr.querySelector('.item-name').value;
+        let price = parseFloat(tr.querySelector('.item-price').value) || 0;
+        lineItems.push({ type: type, name: name, price: price });
+        if (type === 'Part') partsCost += price;
+      });
+
+      let shopFee = parseFloat(document.getElementById('calcShopFee').value) || 0;
+      let totalStr = document.getElementById('calcTotal').textContent.replace('$', '');
+      let gstStr = document.getElementById('calcGst').textContent.replace('$', '');
+
+      let payload = {
+        row: document.getElementById('editRow').value,
+        orderId: document.getElementById('editOrderId').value,
+        customerName: currentEditingJob.customerName,
+        customerEmail: currentEditingJob.customerEmail,
+        vehicle: `${currentEditingJob.vehicleYear} ${currentEditingJob.vehicleMake} ${currentEditingJob.vehicleModel}`,
+        action: document.getElementById('editDecisionAction').value,
+        newDate: document.getElementById('editNewDate').value,
+        studentAssigned: document.getElementById('editStudentAssigned').value,
+        decisionNotes: document.getElementById('editNotes').value,
+        partsCost: partsCost,
+        shopFee: shopFee,
+        subtotal: parseFloat(totalStr) - parseFloat(gstStr),
+        gst: parseFloat(gstStr),
+        total: parseFloat(totalStr),
+        lineItems: lineItems
+      };
+
+      fetch(`${WORKER_BASE}/api/processTeacherDecision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(async res => {
+        const text = await res.text();
+        try {
+          const resJson = JSON.parse(text);
+          if (!res.ok) {
+            alert("Error updating order: " + (resJson.message || res.statusText));
+            return;
+          }
+          alert("Work Order updated and email dispatched.");
+          bootstrap.Modal.getInstance(document.getElementById('editorModal')).hide();
+          loadTeacherJobs();
+        } catch(e) {
+          console.error("Parse error:", text);
+          alert("Update saved or check console.");
+          bootstrap.Modal.getInstance(document.getElementById('editorModal')).hide();
+          loadTeacherJobs();
+        }
+      })
+      .catch(err => {
+        console.error("Network error:", err);
+        alert("Network error connecting to worker.");
+      });
+    }
+
+    function loadStudentJobs() {
+      let searchKey = currentUser ? (currentUser.name || currentUser.email) : '';
+      document.getElementById('studentJobList').innerHTML = '<p class="text-muted">Loading assigned shop vehicles...</p>';
+      fetch(`${WORKER_BASE}/api/getStudentAssignedJobs?studentIdentifier=${encodeURIComponent(searchKey)}`)
+        .then(res => res.json())
+        .then(jobs => renderStudentJobs(jobs));
+    }
+
+    function renderStudentJobs(jobs) {
+      studentJobs = jobs || [];
+      let container = document.getElementById('studentJobList');
+      
+      if (!studentJobs || studentJobs.length === 0) { 
+        container.innerHTML = '<div class="alert alert-info">No work orders currently assigned to you.</div>'; 
+        return; 
+      }
+
+      let html = '';
+      studentJobs.forEach((j, idx) => {
+        let vehicleStr = `${j.vehicleYear || ''} ${j.vehicleMake || ''} ${j.vehicleModel || ''}`.trim() || 'Vehicle Unspecified';
+        
+        html += `
+          <div class="col-md-6">
+            <div class="card p-3 border shadow-sm h-100">
+              <h5 class="text-success mb-2">${j.orderId} - ${vehicleStr}</h5>
+              <p class="mb-1"><strong>Service Requested:</strong> ${j.service}</p>
+              <p class="mb-1"><strong>Client Name:</strong> ${j.customerName}</p>
+              <p class="mb-3"><strong>Status:</strong> <span class="badge bg-warning text-dark">${j.status}</span></p>
+              <button class="btn btn-sm btn-success w-100 mt-auto" onclick="openStudentModal(${idx})">Log Repair & Parts Used</button>
+            </div>
+          </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function openStudentModal(idx) {
+      currentStudentJob = studentJobs[idx];
+      let j = currentStudentJob;
+
+      document.getElementById('sRow').value = j.row || '';
+      document.getElementById('sOrderId').value = j.orderId || '';
+      document.getElementById('sOrderIdDisplay').textContent = j.orderId;
+      document.getElementById('sVehicle').textContent = `${j.vehicleYear} ${j.vehicleMake} ${j.vehicleModel}`;
+      document.getElementById('sNotes').value = j.notes || '';
+
+      let body = document.getElementById('sLineItemsBody');
+      body.innerHTML = '';
+
+      let items = j.lineItems && j.lineItems.length > 0 ? j.lineItems : [
+        { type: 'Service', name: j.service, price: 45.00 }
+      ];
+
+      items.forEach(item => {
+        addStudentLineItem(item.type, item.name, item.price);
+      });
+
+      new bootstrap.Modal(document.getElementById('studentModal')).show();
+    }
+
+    function addStudentLineItem(type, name, price) {
+      let body = document.getElementById('sLineItemsBody');
+      let tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <select class="form-select form-select-sm s-item-type">
+            <option value="Labor" ${type === 'Labor' ? 'selected' : ''}>Labor / Service</option>
+            <option value="Part" ${type === 'Part' ? 'selected' : ''}>Part / Material</option>
+          </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm s-item-name" value="${name}"></td>
+        <td><input type="number" class="form-control form-control-sm s-item-price text-end" value="${Number(price).toFixed(2)}" step="0.01"></td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove();">&times;</button></td>
+      `;
+      body.appendChild(tr);
+    }
+
+    function saveStudentDraft() {
+      let lineItems = [];
+      let partsCost = 0;
+      let itemsSub = 0;
+
+      document.querySelectorAll('#sLineItemsBody tr').forEach(tr => {
+        let type = tr.querySelector('.s-item-type').value;
+        let name = tr.querySelector('.s-item-name').value;
+        let price = parseFloat(tr.querySelector('.s-item-price').value) || 0;
+        lineItems.push({ type: type, name: name, price: price });
+        itemsSub += price;
+        if (type === 'Part') partsCost += price;
+      });
+
+      let shopFee = currentStudentJob.shopFee || 10.00;
+      let netSub = itemsSub + shopFee;
+      let gst = netSub * 0.05;
+      let total = netSub + gst;
+
+      let payload = {
+        row: document.getElementById('sRow').value,
+        orderId: document.getElementById('sOrderId').value,
+        lineItems: lineItems,
+        partsCost: partsCost,
+        subtotal: netSub,
+        gst: gst,
+        total: total,
+        notes: document.getElementById('sNotes').value
+      };
+
+      fetch(`${WORKER_BASE}/api/saveStudentDraft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(() => {
+        alert("Draft updated for instructor review.");
+        bootstrap.Modal.getInstance(document.getElementById('studentModal')).hide();
+        loadStudentJobs();
+      });
+    }
+
+    function decodeVehicleVIN() {
+      let vin = document.getElementById('vinInput').value.trim();
+      if (vin.length !== 17) { alert("Please enter a valid 17-digit VIN."); return; }
+      
+      fetch(`${WORKER_BASE}/api/decodeVin?vin=${encodeURIComponent(vin)}`)
+        .then(res => res.json())
+        .then(res => onVinDecoded(res));
+    }
+
+    function onVinDecoded(res) {
+      if (res.success) {
+        let v = res.vehicle;
+        document.getElementById('vehicleYear').value = v.year;
+        document.getElementById('vehicleMake').value = v.make;
+        document.getElementById('vehicleModel').value = v.model;
+        document.getElementById('vehicleEngine').value = v.engine;
+      } else {
+        alert("Vehicle details not found for this VIN.");
+      }
+    }
+
+    function goToStep(s) {
+      document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
+      document.getElementById('section-' + s).classList.add('active');
+    }
+
+    function validateStep1() {
+      if (!document.getElementById('vehicleYear').value || !document.getElementById('vehicleMake').value || !document.getElementById('customerName').value) {
+        alert("Please fill out all required fields in Step 1."); return;
+      }
+      goToStep(2);
+    }
+
+    function validateStep2() {
+      if (!document.getElementById('serviceSelect').value || !document.getElementById('preferredDate').value) {
+        alert("Please select a service package and drop-off date."); return;
+      }
+      goToStep(3);
+    }
+
+    function calculatePrices() {
+      let selectedServiceName = document.getElementById('serviceSelect').value;
+      if (!selectedServiceName) {
+        document.getElementById('dispBase').textContent = '$0.00';
+        document.getElementById('dispFee').textContent = '$0.00';
+        document.getElementById('dispSub').textContent = '$0.00';
+        document.getElementById('dispGST').textContent = '$0.00';
+        document.getElementById('displayTotal').textContent = '$0.00';
+        return;
+      }
+
+      let matchedService = (portalData.services || []).find(s => s.name === selectedServiceName);
+      let base = matchedService ? Number(matchedService.basePrice || 0) : 0;
+      let fee = portalData.settings.shopFee || 10;
+      let sub = base + fee;
+      let gst = sub * (portalData.settings.gstRate || 0.05);
+      let total = sub + gst;
+
+      document.getElementById('dispBase').textContent = `$${base.toFixed(2)}`;
+      document.getElementById('dispFee').textContent = `$${fee.toFixed(2)}`;
+      document.getElementById('dispSub').textContent = `$${sub.toFixed(2)}`;
+      document.getElementById('dispGST').textContent = `$${gst.toFixed(2)}`;
+      document.getElementById('displayTotal').textContent = `$${total.toFixed(2)}`;
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      let selectedServiceName = document.getElementById('serviceSelect').value;
+      let matchedService = (portalData.services || []).find(s => s.name === selectedServiceName);
+      let base = matchedService ? Number(matchedService.basePrice || 0) : 0;
+      let fee = portalData.settings.shopFee || 10;
+      let sub = base + fee;
+
+      let lineItems = [
+        { type: 'Service', name: selectedServiceName, price: base }
+      ];
+
+      let formData = {
+        customerName: document.getElementById('customerName').value,
+        customerEmail: document.getElementById('customerEmail').value,
+        customerPhone: document.getElementById('customerPhone').value,
+        customerType: document.getElementById('customerType').value,
+        vehicleYear: document.getElementById('vehicleYear').value,
+        vehicleMake: document.getElementById('vehicleMake').value,
+        vehicleModel: document.getElementById('vehicleModel').value,
+        vin: document.getElementById('vinInput').value,
+        serviceSelected: selectedServiceName,
+        customDescription: document.getElementById('customDescription').value,
+        preferredDate: document.getElementById('preferredDate').value,
+        workAuthorized: document.getElementById('workAuthorized').checked,
+        digitalSignature: document.getElementById('digitalSignature').value,
+        shopFee: fee,
+        subtotal: sub,
+        gst: sub * 0.05,
+        totalEstimate: sub * 1.05,
+        lineItems: lineItems
+      };
+
+      let submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
+
+      fetch(`${WORKER_BASE}/api/submitWorkOrder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      .then(async res => {
+        const text = await res.text();
+        try {
+          const resJson = JSON.parse(text);
+          if (!res.ok) {
+            alert("Submission error: " + (resJson.message || res.statusText));
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Submit Service Request";
+            return;
+          }
+          document.getElementById('workOrderForm').classList.add('d-none');
+          document.getElementById('successMessage').classList.remove('d-none');
+          document.getElementById('outOrderId').textContent = resJson.invoiceNumber;
+        } catch (err) {
+          console.error("Parse error:", text);
+          alert("Server responded with invalid format.");
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit Service Request";
+        }
+      })
+      .catch(err => {
+        console.error("Network error:", err);
+        alert("Network error connecting to worker.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Service Request";
+      });
+    }
+  </script>
+</body>
+</html>
