@@ -27,7 +27,7 @@
 </head>
 <body>
 
-  <!-- TOP NAVIGATION BAR (Hidden if /clientview is in URL path) -->
+  <!-- TOP NAVIGATION BAR -->
   <div id="topNavBar" class="top-nav">
     <div>
       <h4 class="mb-0">LCHS Mechanics Shop</h4>
@@ -54,27 +54,27 @@
             <div class="mb-4">
               <label class="form-label font-weight-bold text-dark">Search Vehicle by VIN or Manual Entry</label>
               <div class="input-group">
-                <input type="text" id="vinInput" class="form-control" placeholder="Enter 17-digit VIN to lookup..." maxlength="17">
+                <input type="text" id="vinInput" class="form-control client-input" placeholder="Enter 17-digit VIN to lookup..." maxlength="17">
                 <button class="btn btn-outline-primary" type="button" onclick="decodeVehicleVIN()">Lookup VIN</button>
               </div>
             </div>
 
             <div class="row g-3 mb-4">
-              <div class="col-md-3"><label class="form-label">Year *</label><input type="number" id="vehicleYear" class="form-control" placeholder="2018" required></div>
-              <div class="col-md-4"><label class="form-label">Make *</label><input type="text" id="vehicleMake" class="form-control" placeholder="Honda" required></div>
-              <div class="col-md-5"><label class="form-label">Model *</label><input type="text" id="vehicleModel" class="form-control" placeholder="Civic" required></div>
-              <div class="col-md-6"><label class="form-label">Engine Specs</label><input type="text" id="vehicleEngine" class="form-control" placeholder="Auto-filled via VIN"></div>
+              <div class="col-md-3"><label class="form-label">Year *</label><input type="number" id="vehicleYear" class="form-control client-input" placeholder="2018" required></div>
+              <div class="col-md-4"><label class="form-label">Make *</label><input type="text" id="vehicleMake" class="form-control client-input" placeholder="Honda" required></div>
+              <div class="col-md-5"><label class="form-label">Model *</label><input type="text" id="vehicleModel" class="form-control client-input" placeholder="Civic" required></div>
+              <div class="col-md-6"><label class="form-label">Engine Specs</label><input type="text" id="vehicleEngine" class="form-control client-input" placeholder="Auto-filled via VIN"></div>
               <div class="col-md-6">
                 <label class="form-label">Client Group *</label>
-                <select id="customerType" class="form-select" required>
+                <select id="customerType" class="form-select client-input" required>
                   <option value="Public" selected>Member of Public</option>
                   <option value="School Staff">School Staff / Teacher</option>
                   <option value="Student">High School Student</option>
                 </select>
               </div>
-              <div class="col-md-6"><label class="form-label">Full Name *</label><input type="text" id="customerName" class="form-control" placeholder="Jane Doe" required></div>
-              <div class="col-md-6"><label class="form-label">Email Address *</label><input type="email" id="customerEmail" class="form-control" placeholder="jane@example.com" required></div>
-              <div class="col-md-6"><label class="form-label">Phone Number *</label><input type="tel" id="customerPhone" class="form-control" placeholder="403-555-0199" required></div>
+              <div class="col-md-6"><label class="form-label">Full Name *</label><input type="text" id="customerName" class="form-control client-input" placeholder="Jane Doe" required></div>
+              <div class="col-md-6"><label class="form-label">Email Address *</label><input type="email" id="customerEmail" class="form-control client-input" placeholder="jane@example.com" required></div>
+              <div class="col-md-6"><label class="form-label">Phone Number *</label><input type="tel" id="customerPhone" class="form-control client-input" placeholder="403-555-0199" required></div>
             </div>
             
             <!-- Google Sign-In Quick Fill for Clients -->
@@ -95,24 +95,24 @@
             <div class="step-header">Step 2 of 3: Service Package Selection & Schedule</div>
             
             <label class="form-label font-weight-bold mb-3">Select Desired Service Menu *</label>
-            <input type="hidden" id="serviceSelect" required>
+            <input type="hidden" id="serviceSelect" class="client-input" required>
             <div id="serviceCardsContainer" class="row g-3 mb-4">
               <div class="col-12 text-muted">Loading service packages...</div>
             </div>
 
             <div class="mb-3">
               <label class="form-label">Custom Description / Symptoms</label>
-              <textarea id="customDescription" class="form-control" rows="3" placeholder="Describe specific noises, warning lights, or repairs needed..."></textarea>
+              <textarea id="customDescription" class="form-control client-input" rows="3" placeholder="Describe specific noises, warning lights, or repairs needed..."></textarea>
             </div>
             
             <div class="mb-4">
               <label class="form-label">Preferred Drop-off Date * (No past dates allowed)</label>
-              <input type="date" id="preferredDate" class="form-control" required>
+              <input type="date" id="preferredDate" class="form-control client-input" required>
             </div>
 
             <div class="p-3 bg-light rounded mb-4 border">
               <div class="d-flex justify-content-between mb-1"><span>Base Rate:</span><span id="dispBase">$0.00</span></div>
-              <div class="d-flex justify-content-between mb-1"><span>Shop Supplies Fee:</span><span id="dispFee">$0.00</span></div>
+              <div class="d-flex justify-content-between mb-1"><span>Shop Supplies Fee:</span><span id="dispFee">$10.00</span></div>
               <div class="d-flex justify-content-between mb-1"><span>Subtotal:</span><span id="dispSub">$0.00</span></div>
               <div class="d-flex justify-content-between mb-1"><span>Alberta GST (5%):</span><span id="dispGST">$0.00</span></div>
               <hr class="my-2">
@@ -130,7 +130,7 @@
             <div class="step-header">Step 3 of 3: Pre-Authorization</div>
             <div class="mb-3">
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="workAuthorized" required>
+                <input class="form-check-input client-input" type="checkbox" id="workAuthorized" required>
                 <label class="form-check-label" for="workAuthorized">
                   I authorize LCHS Mechanics to inspect and diagnose. Formal repair work commences only after instructor estimate review and final approval.
                 </label>
@@ -138,7 +138,7 @@
             </div>
             <div class="mb-4">
               <label class="form-label">Digital Signature (Type Full Legal Name) *</label>
-              <input type="text" id="digitalSignature" class="form-control" placeholder="Full Legal Name" required>
+              <input type="text" id="digitalSignature" class="form-control client-input" placeholder="Full Legal Name" required>
             </div>
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-secondary w-50" onclick="goToStep(2)">Back</button>
@@ -150,7 +150,7 @@
         <div id="successMessage" class="text-center py-5 d-none">
           <h3 class="text-success">Work Order Request Submitted</h3>
           <p class="lead">Assigned Invoice Number: <strong id="outOrderId" class="text-primary"></strong></p>
-          <button class="btn btn-outline-primary mt-3" onclick="window.location.reload()">Submit Another Request</button>
+          <button class="btn btn-outline-primary mt-3" onclick="clearClientStorage(); window.location.reload();">Submit Another Request</button>
         </div>
       </div>
     </div>
@@ -242,15 +242,25 @@
             <tbody id="lineItemsTableBody"></tbody>
           </table>
 
-          <div class="row g-2 mb-4">
-            <div class="col-md-5">
-              <select id="catalogPartsDropdown" class="form-select form-select-sm" onchange="addSelectedCatalogPart()">
-                <option value="">-- Add Compatible Part from Catalog --</option>
-              </select>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label font-weight-bold text-dark">Add Labor / Service Package</label>
+              <div class="input-group">
+                <select id="catalogServicesDropdown" class="form-select" onchange="addSelectedCatalogService()">
+                  <option value="">-- Choose Labor from Catalog --</option>
+                </select>
+                <button type="button" class="btn btn-outline-primary" onclick="addLineItem('Labor', 'Custom Labor Charge', 0)">+ Custom Labor</button>
+              </div>
             </div>
-            <div class="col-md-7 text-end">
-              <button type="button" class="btn btn-sm btn-outline-primary" onclick="addLineItem('Labor', 'Custom Labor Charge', 0)">+ Add Custom Labor</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLineItem('Part', 'Custom Part', 0)">+ Add Custom Part</button>
+
+            <div class="col-md-6">
+              <label class="form-label font-weight-bold text-dark">Add Replacement Part</label>
+              <div class="input-group">
+                <select id="catalogPartsDropdown" class="form-select" onchange="addSelectedCatalogPart()">
+                  <option value="">-- Choose Part from Catalog --</option>
+                </select>
+                <button type="button" class="btn btn-outline-secondary" onclick="addLineItem('Part', 'Custom Part', 0)">+ Custom Part</button>
+              </div>
             </div>
           </div>
 
@@ -337,13 +347,15 @@
     let currentUser = null;
 
     window.onload = function() {
-      // Check if /clientview is in the URL pathname or search query to hide navigation
       if (window.location.pathname.includes('clientview') || window.location.search.includes('clientview')) {
         document.getElementById('topNavBar').style.display = 'none';
       }
 
       const todayStr = new Date().toISOString().split('T')[0];
       document.getElementById('preferredDate').min = todayStr;
+
+      // Load saved inputs from sessionStorage if available
+      restoreClientState();
 
       fetch(`${WORKER_BASE}/api/getPortalData`)
         .then(async res => {
@@ -365,6 +377,12 @@
           console.error("Network or Fetch Error:", err);
           alert("Could not connect to the backend worker.");
         });
+
+      // Attach auto-save listeners to inputs
+      document.querySelectorAll('.client-input').forEach(el => {
+        el.addEventListener('input', saveClientState);
+        el.addEventListener('change', saveClientState);
+      });
     };
 
     function initPortal(data) {
@@ -379,15 +397,19 @@
         return;
       }
 
+      let savedService = document.getElementById('serviceSelect').value;
+
       data.services.forEach(s => {
         let price = Number(s.basePrice || 0);
         let hours = Number(s.estimatedLaborHours || 1);
         let category = s.category || 'General Repair';
         
+        let isSelected = (savedService === s.name);
+        
         let col = document.createElement('div');
         col.className = 'col-md-6';
         col.innerHTML = `
-          <div class="service-card" onclick="selectServiceCard(this, '${s.name}', ${price})">
+          <div class="service-card ${isSelected ? 'selected' : ''}" onclick="selectServiceCard(this, '${s.name}', ${price})">
             <div class="d-flex justify-content-between align-items-start mb-1">
               <h6 class="font-weight-bold text-dark mb-0">${s.name}</h6>
               <span class="badge bg-primary">$${price.toFixed(2)}</span>
@@ -405,6 +427,62 @@
       cardElement.classList.add('selected');
       document.getElementById('serviceSelect').value = serviceName;
       calculatePrices();
+      saveClientState();
+    }
+
+    // SessionStorage Helpers for Form Persistence
+    function saveClientState() {
+      let state = {
+        vin: document.getElementById('vinInput').value,
+        year: document.getElementById('vehicleYear').value,
+        make: document.getElementById('vehicleMake').value,
+        model: document.getElementById('vehicleModel').value,
+        engine: document.getElementById('vehicleEngine').value,
+        customerType: document.getElementById('customerType').value,
+        name: document.getElementById('customerName').value,
+        email: document.getElementById('customerEmail').value,
+        phone: document.getElementById('customerPhone').value,
+        service: document.getElementById('serviceSelect').value,
+        description: document.getElementById('customDescription').value,
+        date: document.getElementById('preferredDate').value,
+        signature: document.getElementById('digitalSignature').value,
+        authorized: document.getElementById('workAuthorized').checked,
+        activeStep: document.querySelector('.step-section.active')?.id || 'section-1'
+      };
+      sessionStorage.setItem('lchs_client_form_state', JSON.stringify(state));
+    }
+
+    function restoreClientState() {
+      let saved = sessionStorage.getItem('lchs_client_form_state');
+      if (!saved) return;
+      try {
+        let state = JSON.parse(saved);
+        if (state.vin) document.getElementById('vinInput').value = state.vin;
+        if (state.year) document.getElementById('vehicleYear').value = state.year;
+        if (state.make) document.getElementById('vehicleMake').value = state.make;
+        if (state.model) document.getElementById('vehicleModel').value = state.model;
+        if (state.engine) document.getElementById('vehicleEngine').value = state.engine;
+        if (state.customerType) document.getElementById('customerType').value = state.customerType;
+        if (state.name) document.getElementById('customerName').value = state.name;
+        if (state.email) document.getElementById('customerEmail').value = state.email;
+        if (state.phone) document.getElementById('customerPhone').value = state.phone;
+        if (state.service) document.getElementById('serviceSelect').value = state.service;
+        if (state.description) document.getElementById('customDescription').value = state.description;
+        if (state.date) document.getElementById('preferredDate').value = state.date;
+        if (state.signature) document.getElementById('digitalSignature').value = state.signature;
+        if (state.authorized !== undefined) document.getElementById('workAuthorized').checked = state.authorized;
+        
+        if (state.activeStep) {
+          document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
+          document.getElementById(state.activeStep)?.classList.add('active');
+        }
+      } catch(e) {
+        console.error("Error restoring session state:", e);
+      }
+    }
+
+    function clearClientStorage() {
+      sessionStorage.removeItem('lchs_client_form_state');
     }
 
     function resetNavButtons() {
@@ -471,6 +549,7 @@
         if (profile.email && profile.email.endsWith('.ca')) {
           document.getElementById('customerType').value = 'School Staff';
         }
+        saveClientState();
       }
     }
 
@@ -631,8 +710,19 @@
       document.getElementById('editNotes').value = j.notes || '';
       document.getElementById('calcShopFee').value = j.shopFee !== undefined ? j.shopFee : 10.00;
 
+      let servicesSelect = document.getElementById('catalogServicesDropdown');
+      servicesSelect.innerHTML = '<option value="">-- Choose Labor from Catalog --</option>';
+      (portalData.services || []).forEach(s => {
+        let opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = `${s.name} - $${Number(s.basePrice || 0).toFixed(2)}`;
+        opt.dataset.name = s.name;
+        opt.dataset.price = s.basePrice || 0;
+        servicesSelect.appendChild(opt);
+      });
+
       let partsSelect = document.getElementById('catalogPartsDropdown');
-      partsSelect.innerHTML = '<option value="">-- Add Compatible Part from Catalog --</option>';
+      partsSelect.innerHTML = '<option value="">-- Choose Part from Catalog --</option>';
       catalogParts.forEach(p => {
         let opt = document.createElement('option');
         opt.value = p.id;
@@ -667,7 +757,7 @@
       tr.innerHTML = `
         <td>
           <select class="form-select form-select-sm item-type">
-            <option value="Labor" ${type === 'Labor' ? 'selected' : ''}>Labor / Service</option>
+            <option value="Labor" ${type === 'Labor' || type === 'Service' ? 'selected' : ''}>Labor / Service</option>
             <option value="Part" ${type === 'Part' ? 'selected' : ''}>Part / Material</option>
           </select>
         </td>
@@ -677,6 +767,15 @@
       `;
       body.appendChild(tr);
       recalculateInvoice();
+    }
+
+    function addSelectedCatalogService() {
+      let select = document.getElementById('catalogServicesDropdown');
+      let opt = select.options[select.selectedIndex];
+      if (opt && opt.value) {
+        addLineItem('Labor', opt.dataset.name, parseFloat(opt.dataset.price));
+        select.selectedIndex = 0;
+      }
     }
 
     function addSelectedCatalogPart() {
@@ -836,7 +935,7 @@
       tr.innerHTML = `
         <td>
           <select class="form-select form-select-sm s-item-type">
-            <option value="Labor" ${type === 'Labor' ? 'selected' : ''}>Labor / Service</option>
+            <option value="Labor" ${type === 'Labor' || type === 'Service' ? 'selected' : ''}>Labor / Service</option>
             <option value="Part" ${type === 'Part' ? 'selected' : ''}>Part / Material</option>
           </select>
         </td>
@@ -911,6 +1010,7 @@
         mkEl.value = v.make; mkEl.classList.add('vin-autofilled');
         mdEl.value = v.model; mdEl.classList.add('vin-autofilled');
         egEl.value = v.engine; egEl.classList.add('vin-autofilled');
+        saveClientState();
       } else {
         alert("Vehicle details not found for this VIN.");
       }
@@ -919,6 +1019,7 @@
     function goToStep(s) {
       document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
       document.getElementById('section-' + s).classList.add('active');
+      saveClientState();
     }
 
     function validateStep1() {
@@ -939,10 +1040,10 @@
       let selectedServiceName = document.getElementById('serviceSelect').value;
       if (!selectedServiceName) {
         document.getElementById('dispBase').textContent = '$0.00';
-        document.getElementById('dispFee').textContent = '$0.00';
-        document.getElementById('dispSub').textContent = '$0.00';
-        document.getElementById('dispGST').textContent = '$0.00';
-        document.getElementById('displayTotal').textContent = '$0.00';
+        document.getElementById('dispFee').textContent = '$10.00';
+        document.getElementById('dispSub').textContent = '$10.00';
+        document.getElementById('dispGST').textContent = '$0.50';
+        document.getElementById('displayTotal').textContent = '$10.50';
         return;
       }
 
@@ -967,6 +1068,8 @@
       let base = matchedService ? Number(matchedService.basePrice || 0) : 0;
       let fee = portalData.settings.shopFee || 10;
       let sub = base + fee;
+      let gst = sub * (portalData.settings.gstRate || 0.05);
+      let total = sub + gst;
 
       let lineItems = [
         { type: 'Service', name: selectedServiceName, price: base }
@@ -988,8 +1091,8 @@
         digitalSignature: document.getElementById('digitalSignature').value,
         shopFee: fee,
         subtotal: sub,
-        gst: sub * 0.05,
-        totalEstimate: sub * 1.05,
+        gst: gst,
+        totalEstimate: total,
         lineItems: lineItems
       };
 
@@ -1012,6 +1115,7 @@
             submitBtn.textContent = "Submit Service Request";
             return;
           }
+          clearClientStorage();
           document.getElementById('workOrderForm').classList.add('d-none');
           document.getElementById('successMessage').classList.remove('d-none');
           document.getElementById('outOrderId').textContent = resJson.invoiceNumber;
