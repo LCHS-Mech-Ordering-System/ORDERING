@@ -3,6 +3,8 @@
 <head>
   <base target="_top">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     body { background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     .top-nav { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 10px 10px; margin-bottom: 25px; }
@@ -18,12 +20,15 @@
     .service-card { border: 2px solid #e2e8f0; border-radius: 10px; padding: 15px; cursor: pointer; transition: all 0.2s ease; background: white; height: 100%; }
     .service-card:hover { border-color: #0284c7; box-shadow: 0 4px 10px rgba(2, 132, 199, 0.1); }
     .service-card.selected { border-color: #0284c7; background-color: #f0f9ff; }
+    
+    /* Green text styling for auto-filled VIN data */
+    .vin-autofilled { color: #16a34a !important; font-weight: 600; border-color: #16a34a !important; }
   </style>
 </head>
 <body>
 
-  <!-- TOP NAVIGATION BAR -->
-  <div class="top-nav">
+  <!-- TOP NAVIGATION BAR (Hidden if /clientview is in URL path) -->
+  <div id="topNavBar" class="top-nav">
     <div>
       <h4 class="mb-0">LCHS Mechanics Shop</h4>
       <small class="opacity-75">Lacombe Composite High School CTE Program</small>
@@ -35,7 +40,7 @@
     </div>
   </div>
 
-  <div class="container mb-5" style="max-width: 950px;">
+  <div class="container mb-5 pt-2" style="max-width: 950px;">
 
     <!-- VIEW 1: CLIENT SERVICE INTAKE -->
     <div id="viewClient" class="app-view active">
@@ -71,6 +76,17 @@
               <div class="col-md-6"><label class="form-label">Email Address *</label><input type="email" id="customerEmail" class="form-control" placeholder="jane@example.com" required></div>
               <div class="col-md-6"><label class="form-label">Phone Number *</label><input type="tel" id="customerPhone" class="form-control" placeholder="403-555-0199" required></div>
             </div>
+            
+            <!-- Google Sign-In Quick Fill for Clients -->
+            <div class="mb-3 text-center border-top pt-3">
+              <small class="text-muted d-block mb-2">Or quick-fill client details with Google Account</small>
+              <div id="g_id_onload_client"
+                   data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+                   data-callback="handleClientGoogleSignIn"
+                   data-auto_prompt="false"></div>
+              <div class="g_id_signin" data-type="standard" data-size="medium" data-width="300"></div>
+            </div>
+
             <button type="button" class="btn btn-primary w-100" onclick="validateStep1()">Next: Select Service Package</button>
           </div>
 
@@ -81,7 +97,6 @@
             <label class="form-label font-weight-bold mb-3">Select Desired Service Menu *</label>
             <input type="hidden" id="serviceSelect" required>
             <div id="serviceCardsContainer" class="row g-3 mb-4">
-              <!-- Dynamically populated Steer-style service cards -->
               <div class="col-12 text-muted">Loading service packages...</div>
             </div>
 
@@ -155,7 +170,16 @@
           <label class="form-label">Desk / Station Number *</label>
           <input type="text" id="loginDesk" class="form-control" placeholder="e.g. DESK-101 or 101" required>
         </div>
-        <button type="button" id="loginSubmitBtn" class="btn btn-primary w-100" onclick="performLogin()">Authenticate Credentials</button>
+        <button type="button" id="loginSubmitBtn" class="btn btn-primary w-100 mb-3" onclick="performLogin()">Authenticate Credentials</button>
+
+        <div class="text-center">
+          <small class="text-muted d-block mb-2">Or sign in instantly with Google Workspace / Staff Account</small>
+          <div id="g_id_onload_console"
+               data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+               data-callback="handleConsoleGoogleSignIn"
+               data-auto_prompt="false"></div>
+          <div class="g_id_signin d-flex justify-content-center" data-type="standard" data-size="large"></div>
+        </div>
       </div>
     </div>
 
@@ -313,6 +337,11 @@
     let currentUser = null;
 
     window.onload = function() {
+      // Check if /clientview is in the URL pathname or search query to hide navigation
+      if (window.location.pathname.includes('clientview') || window.location.search.includes('clientview')) {
+        document.getElementById('topNavBar').style.display = 'none';
+      }
+
       const todayStr = new Date().toISOString().split('T')[0];
       document.getElementById('preferredDate').min = todayStr;
 
@@ -342,7 +371,6 @@
       portalData = data;
       catalogParts = data.parts || [];
       
-      // Render Steer-style service booking cards
       let container = document.getElementById('serviceCardsContainer');
       container.innerHTML = '';
       
@@ -380,6 +408,7 @@
     }
 
     function resetNavButtons() {
+      if (window.location.pathname.includes('clientview') || window.location.search.includes('clientview')) return;
       let nav = document.getElementById('navButtons');
       nav.innerHTML = `
         <button class="btn btn-outline-light btn-sm" onclick="showView('client')">Client Portal</button>
@@ -389,6 +418,7 @@
     }
 
     function setLoggedInNav(userName) {
+      if (window.location.pathname.includes('clientview') || window.location.search.includes('clientview')) return;
       let nav = document.getElementById('navButtons');
       nav.innerHTML = `
         <span class="text-light me-2" style="font-size: 0.95rem;">Hi, ${userName}</span>
@@ -420,6 +450,66 @@
       document.getElementById('loginEmail').value = '';
       document.getElementById('loginDesk').value = '';
       document.getElementById('loginError').classList.add('d-none');
+    }
+
+    function parseJwt(token) {
+      try {
+        let base64Url = token.split('.')[1];
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        let jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function handleClientGoogleSignIn(response) {
+      let profile = parseJwt(response.credential);
+      if (profile) {
+        document.getElementById('customerName').value = profile.name || '';
+        document.getElementById('customerEmail').value = profile.email || '';
+        if (profile.email && profile.email.endsWith('.ca')) {
+          document.getElementById('customerType').value = 'School Staff';
+        }
+      }
+    }
+
+    function handleConsoleGoogleSignIn(response) {
+      let profile = parseJwt(response.credential);
+      if (!profile || !profile.email) return;
+
+      let role = document.getElementById('loginRole').value;
+      let email = profile.email.trim().toLowerCase();
+
+      fetch(`${WORKER_BASE}/api/authenticate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, email, desk: 'GOOGLE-SSO' })
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          currentUser = res.user;
+          setLoggedInNav(res.user.name);
+          if (role === 'teacher') {
+            showView('teacher');
+            loadTeacherJobs();
+          } else {
+            showView('student');
+            loadStudentJobs();
+          }
+        } else {
+          currentUser = { email: email, name: profile.name };
+          setLoggedInNav(profile.name);
+          if (role === 'teacher' || email.includes('lchs') || email.includes('teacher')) {
+            showView('teacher');
+            loadTeacherJobs();
+          } else {
+            showView('student');
+            loadStudentJobs();
+          }
+        }
+      });
     }
 
     function performLogin() {
@@ -812,10 +902,15 @@
     function onVinDecoded(res) {
       if (res.success) {
         let v = res.vehicle;
-        document.getElementById('vehicleYear').value = v.year;
-        document.getElementById('vehicleMake').value = v.make;
-        document.getElementById('vehicleModel').value = v.model;
-        document.getElementById('vehicleEngine').value = v.engine;
+        let yrEl = document.getElementById('vehicleYear');
+        let mkEl = document.getElementById('vehicleMake');
+        let mdEl = document.getElementById('vehicleModel');
+        let egEl = document.getElementById('vehicleEngine');
+
+        yrEl.value = v.year; yrEl.classList.add('vin-autofilled');
+        mkEl.value = v.make; mkEl.classList.add('vin-autofilled');
+        mdEl.value = v.model; mdEl.classList.add('vin-autofilled');
+        egEl.value = v.engine; egEl.classList.add('vin-autofilled');
       } else {
         alert("Vehicle details not found for this VIN.");
       }
