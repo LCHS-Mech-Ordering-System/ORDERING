@@ -1,718 +1,1040 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <base target="_top">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Supabase JS SDK -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LCHS Mechanics Shop Portal</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Supabase JS v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Google Identity Services SDK -->
+  <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    body { background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .top-nav { background: linear-gradient(135deg, #0f172a 0%, #161f31 100%); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 10px 10px; margin-bottom: 25px; }
-    .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .step-section { display: none; }
-    .step-section.active { display: block; }
-    .step-header { font-weight: 600; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
-    .auth-card { max-width: 480px; margin: 50px auto; }
-    
-    .service-card { border: 2px solid #e2e8f0; border-radius: 10px; padding: 15px; cursor: pointer; transition: all 0.2s ease; background: white; height: 100%; }
-    .service-card:hover { border-color: #0f172a; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1); }
-    .service-card.selected { border-color: #0f172a; background-color: #f8fafc; }
-    .vin-autofilled { color: #16a34a !important; font-weight: 600; border-color: #16a34a !important; }
-    .badge-orange { background-color: #f97316 !important; color: white !important; }
+    :root {
+      --lchs-navy: #0f2942;
+      --lchs-gold: #e0a800;
+      --lchs-bg: #f4f6f9;
+    }
+    body {
+      background-color: var(--lchs-bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .navbar-lchs {
+      background-color: var(--lchs-navy);
+      border-bottom: 4px solid var(--lchs-gold);
+    }
+    .card-header-navy {
+      background-color: var(--lchs-navy);
+      color: #fff;
+    }
+    .badge-status {
+      font-size: 0.85rem;
+      padding: 0.4em 0.7em;
+    }
+    .job-card {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .job-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
+    }
+    .table-sm td, .table-sm th {
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>
 
-  <!-- TOP NAVIGATION BAR -->
-  <div id="topNavBar" class="top-nav">
-    <div>
-      <h4 class="mb-0">LCHS Mechanics Shop</h4>
-      <small class="opacity-75">Lacombe Composite High School CTE Program</small>
-    </div>
-    <div id="navButtons" class="d-flex align-items-center gap-2">
-      <button id="btnSignOut" class="btn btn-outline-light btn-sm d-none" onclick="signOutGoogle()">Sign Out</button>
-    </div>
-  </div>
-
-  <div class="container mb-5 pt-2" style="max-width: 950px;">
-
-    <!-- UNIFIED HOME GATE (CHOOSE PORTAL OR GOOGLE SIGN-IN) -->
-    <div id="authGateCard" class="card p-5 auth-card text-center">
-      <h3 class="text-dark mb-2">LCHS Mechanics Portal</h3>
-      <p class="text-muted small mb-4">Select your portal below and sign in securely with Google Workspace.</p>
-      
-      <div class="d-grid gap-3">
-        <button class="btn btn-dark btn-lg py-3" onclick="showAuthMode('client')">
-          Client Portal (Book Service & View History)
-        </button>
-        <button class="btn btn-outline-dark btn-lg py-3" onclick="showAuthMode('shop')">
-          Shop Floor Terminal (Student / Instructor)
+  <!-- Top Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-lchs shadow-sm mb-4">
+    <div class="container">
+      <a class="navbar-brand fw-bold d-flex align-items-center" href="#">
+        <i class="bi bi-wrench-adjustable-circle-fill text-warning me-2 fs-4"></i>
+        <span>LCHS Mechanics Shop Portal</span>
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <span id="navUserBadge" class="text-light small d-none"></span>
+        <button id="btnSignOut" class="btn btn-outline-warning btn-sm d-none" onclick="signOutUser()">
+          <i class="bi bi-box-arrow-right me-1"></i>Sign Out
         </button>
       </div>
     </div>
+  </nav>
 
-    <!-- SPECIFIC GOOGLE SIGN-IN GATE CARD -->
-    <div id="googleSigninCard" class="card p-5 auth-card text-center d-none">
-      <h3 id="signinCardTitle" class="text-dark mb-2">Sign In</h3>
-      <p id="signinCardDesc" class="text-muted small mb-4">Click below to authenticate with your LCHS or Google account.</p>
-      
-      <!-- Official Google Sign-In Render Container -->
-      <div class="d-flex justify-content-center mb-3">
-        <div id="googleButtonContainer"></div>
-      </div>
+  <div class="container pb-5">
 
-      <button class="btn btn-link text-muted btn-sm mt-3" onclick="resetToHomeGate()">&larr; Back to Portal Selection</button>
+    <!-- Global Alert Banner -->
+    <div id="globalAlert" class="alert d-none alert-dismissible fade show" role="alert">
+      <span id="globalAlertMessage"></span>
+      <button type="button" class="btn-close" onclick="hideAlert()"></button>
     </div>
 
-    <!-- CLIENT PORTAL VIEW -->
-    <div id="viewClientDashboard" class="card p-4 d-none">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h4 id="clientDashboardName" class="text-dark mb-0">Client Portal</h4>
-          <small id="clientDashboardEmail" class="text-muted"></small>
+    <!-- AUTHENTICATION GATE / PORTAL LANDING -->
+    <div id="authGateCard" class="row justify-content-center my-4">
+      <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+          <div class="card-header card-header-navy py-3">
+            <h4 class="mb-0"><i class="bi bi-shield-lock me-2 text-warning"></i>Welcome to Lacombe Composite High School Automotive</h4>
+          </div>
+          <div class="card-body p-4">
+            <p class="text-muted mb-4">
+              Sign in with your Google account to submit a vehicle service request, track your repair history, or access the Student &amp; Instructor Shop Floor Terminal.
+            </p>
+
+            <div class="row g-3 mb-4">
+              <div class="col-md-4">
+                <div class="border rounded p-3 h-100 bg-light text-center">
+                  <i class="bi bi-car-front-fill fs-2 text-primary mb-2"></i>
+                  <h6 class="fw-bold">Vehicle Owners</h6>
+                  <p class="small text-muted mb-0">Request estimates, decode your VIN, and view past work orders.</p>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="border rounded p-3 h-100 bg-light text-center">
+                  <i class="bi bi-tools fs-2 text-success mb-2"></i>
+                  <h6 class="fw-bold">Student Technicians</h6>
+                  <p class="small text-muted mb-0">Log parts, labor hours, and repair notes on assigned vehicles.</p>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="border rounded p-3 h-100 bg-light text-center">
+                  <i class="bi bi-clipboard-check-fill fs-2 text-warning mb-2"></i>
+                  <h6 class="fw-bold">Shop Instructors</h6>
+                  <p class="small text-muted mb-0">Review incoming requests, assign students, and finalize invoices.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Google Sign-In Container -->
+            <div id="googleSigninCard" class="text-center p-4 border rounded bg-white">
+              <h6 class="fw-bold mb-3">Sign in with Google to Continue</h6>
+              <div class="d-flex justify-content-center">
+                <div id="g_id_onload"
+                     data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleGoogleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-shape="rectangular"
+                     data-theme="outline"
+                     data-text="signin_with"
+                     data-size="large"
+                     data-logo_alignment="left">
+                </div>
+              </div>
+              <div id="configWarning" class="text-danger small mt-3 d-none">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                Configuration Notice: Please ensure <code>SUPABASE_ANON_KEY</code> and <code>GOOGLE_CLIENT_ID</code> are set at the top of the script.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <ul class="nav nav-tabs mb-4" id="clientTabs">
+    <!-- ===================================================================== -->
+    <!-- VIEW 1: CLIENT DASHBOARD & NEW WORK ORDER REQUEST                     -->
+    <!-- ===================================================================== -->
+    <div id="viewClientDashboard" class="d-none">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+          <h3 id="clientDashboardName" class="fw-bold mb-0">Welcome</h3>
+          <span id="clientDashboardEmail" class="text-muted small"></span>
+        </div>
+        <button class="btn btn-primary" onclick="toggleClientSection('newRequest')">
+          <i class="bi bi-plus-circle me-1"></i>New Service Request
+        </button>
+      </div>
+
+      <!-- Tabs for Client -->
+      <ul class="nav nav-tabs mb-4">
         <li class="nav-item">
-          <a class="nav-link active" id="tabLinkBooking" href="#" onclick="switchClientTab('booking')">+ New Service Request</a>
+          <button class="nav-link active fw-semibold" id="tabClientHistory" onclick="toggleClientSection('history')">
+            <i class="bi bi-clock-history me-1"></i>My Work Orders
+          </button>
         </li>
         <li class="nav-item">
-          <a class="nav-link" id="tabLinkHistory" href="#" onclick="switchClientTab('history')">Vehicle & Service History</a>
+          <button class="nav-link fw-semibold" id="tabClientNew" onclick="toggleClientSection('newRequest')">
+            <i class="bi bi-file-earmark-plus me-1"></i>Submit Work Order Request
+          </button>
         </li>
       </ul>
 
-      <!-- TAB 1: BOOKING FORM -->
-      <div id="clientTabBooking">
-        <form id="workOrderForm" onsubmit="handleFormSubmit(event)">
-          
-          <div id="section-1" class="step-section active">
-            <div class="step-header">Step 1 of 3: Vehicle & Contact Information</div>
-            
-            <div class="mb-4">
-              <label class="form-label font-weight-bold text-dark">Enter 17-Digit VIN (Auto-decodes)</label>
-              <div class="input-group">
-                <input type="text" id="vinInput" class="form-control" placeholder="17-digit VIN..." maxlength="17" oninput="handleVinTyping(this.value)">
-                <button class="btn btn-dark" type="button" onclick="decodeVehicleVIN()">Lookup VIN</button>
-              </div>
-            </div>
-
-            <div class="row g-3 mb-4">
-              <div class="col-md-3"><label class="form-label">Year *</label><input type="number" id="vehicleYear" class="form-control" required></div>
-              <div class="col-md-4"><label class="form-label">Make *</label><input type="text" id="vehicleMake" class="form-control" required></div>
-              <div class="col-md-5"><label class="form-label">Model *</label><input type="text" id="vehicleModel" class="form-control" required></div>
-              <div class="col-md-6"><label class="form-label">Odometer (km) *</label><input type="number" id="vehicleOdometer" class="form-control" required></div>
-              <div class="col-md-6"><label class="form-label">Phone Number *</label><input type="tel" id="customerPhone" class="form-control" required></div>
-              <div class="col-md-8"><label class="form-label">Street Address *</label><input type="text" id="customerAddress" class="form-control" required></div>
-              <div class="col-md-4"><label class="form-label">Postal Code *</label><input type="text" id="customerPostal" class="form-control" placeholder="T4L 1A2" required></div>
-            </div>
-
-            <button type="button" class="btn btn-dark w-100" onclick="goToStep(2)">Next: Select Service Packages</button>
+      <!-- Client History Section -->
+      <div id="sectionClientHistory">
+        <div id="clientOrdersList" class="row g-3">
+          <div class="col-12 text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm me-2"></div>Loading your work orders...
           </div>
-
-          <div id="section-2" class="step-section">
-            <div class="step-header">Step 2 of 3: Service Packages & Schedule</div>
-            
-            <label class="form-label font-weight-bold mb-3">Select Desired Service Packages *</label>
-            <div id="serviceCardsContainer" class="row g-3 mb-4">
-              <div class="col-12 text-muted">Loading service packages from database...</div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Custom Description / Symptoms</label>
-              <textarea id="customDescription" class="form-control" rows="3" placeholder="Describe noises or warning lights..."></textarea>
-            </div>
-            
-            <div class="mb-4">
-              <label class="form-label">Preferred Drop-off Date *</label>
-              <input type="date" id="preferredDate" class="form-control" required>
-            </div>
-
-            <div class="p-3 bg-light rounded mb-4 border">
-              <div class="d-flex justify-content-between mb-1"><span>Selected Services (Labor - GST Exempt):</span><span id="dispLabor">$0.00</span></div>
-              <div class="d-flex justify-content-between mb-1"><span>Shop Supplies Fee (Taxable):</span><span id="dispFee">$0.00</span></div>
-              <div class="d-flex justify-content-between mb-1"><span>Subtotal:</span><span id="dispSub">$0.00</span></div>
-              <div class="d-flex justify-content-between mb-1"><span>Alberta GST (5% on Parts/Supplies only):</span><span id="dispGST">$0.00</span></div>
-              <hr class="my-2">
-              <div class="d-flex justify-content-between font-weight-bold h5 text-dark"><strong>Estimated Total:</strong><strong id="displayTotal">$0.00</strong></div>
-            </div>
-
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-secondary w-50" onclick="goToStep(1)">Back</button>
-              <button type="button" class="btn btn-dark w-50" onclick="goToStep(3)">Next: Authorization</button>
-            </div>
-          </div>
-
-          <div id="section-3" class="step-section">
-            <div class="step-header">Step 3 of 3: Pre-Authorization</div>
-            <div class="mb-3">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="workAuthorized" required>
-                <label class="form-check-label" for="workAuthorized">
-                  I authorize LCHS Mechanics to inspect and diagnose. Formal repair work commences after instructor estimate review.
-                </label>
-              </div>
-            </div>
-            <div class="mb-4">
-              <label class="form-label">Digital Signature (Type Full Legal Name) *</label>
-              <input type="text" id="digitalSignature" class="form-control" placeholder="Full Legal Name" required>
-            </div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-secondary w-50" onclick="goToStep(2)">Back</button>
-              <button type="submit" id="submitBtn" class="btn btn-dark w-50">Submit Service Request</button>
-            </div>
-          </div>
-        </form>
-
-        <div id="successMessage" class="text-center py-5 d-none">
-          <h3 class="text-dark">Work Order Request Submitted</h3>
-          <p class="lead">Assigned Invoice Number: <strong id="outOrderId" class="text-primary"></strong></p>
-          <button class="btn btn-outline-dark mt-3" onclick="window.location.reload()">Submit Another Request</button>
         </div>
       </div>
 
-      <!-- TAB 2: HISTORY -->
-      <div id="clientTabHistory" class="d-none">
-        <h5 class="mb-3">Your Vehicles & Past Work Performed</h5>
-        <div id="clientHistoryList"><p class="text-muted">Loading your service records...</p></div>
+      <!-- Client New Work Order Form Section -->
+      <div id="sectionClientNewRequest" class="d-none">
+        <div class="card shadow-sm border-0">
+          <div class="card-header card-header-navy py-3">
+            <h5 class="mb-0"><i class="bi bi-wrench me-2 text-warning"></i>Request Vehicle Service</h5>
+          </div>
+          <div class="card-body p-4">
+            <form id="workOrderForm" onsubmit="submitNewWorkOrder(event)">
+              <!-- Customer Contact -->
+              <h6 class="text-uppercase text-muted fw-bold small mb-3">1. Contact Information</h6>
+              <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                  <label class="form-label">Full Name *</label>
+                  <input type="text" id="custName" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Email Address *</label>
+                  <input type="email" id="custEmail" class="form-control" readonly required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Phone Number *</label>
+                  <input type="tel" id="custPhone" class="form-control" placeholder="(403) 555-0199" required />
+                </div>
+              </div>
+
+              <!-- Vehicle Information & NHTSA VIN Decoder -->
+              <h6 class="text-uppercase text-muted fw-bold small mb-3">2. Vehicle Information</h6>
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">17-Character VIN (Optional - Auto-fills Vehicle)</label>
+                  <div class="input-group">
+                    <input type="text" id="vehVin" class="form-control text-uppercase" maxlength="17" placeholder="Enter VIN..." />
+                    <button type="button" class="btn btn-outline-secondary" id="btnDecodeVin" onclick="decodeVinNHTSA()">
+                      <i class="bi bi-search me-1"></i>Decode VIN
+                    </button>
+                  </div>
+                  <div id="vinDecodeStatus" class="form-text"></div>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Odometer (km) *</label>
+                  <input type="number" id="vehOdometer" class="form-control" placeholder="e.g. 145000" required />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Preferred Drop-off Date</label>
+                  <input type="date" id="prefDate" class="form-control" />
+                </div>
+              </div>
+
+              <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                  <label class="form-label">Year *</label>
+                  <input type="number" id="vehYear" class="form-control" min="1950" max="2028" placeholder="2018" required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Make *</label>
+                  <input type="text" id="vehMake" class="form-control" placeholder="Honda" required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Model *</label>
+                  <input type="text" id="vehModel" class="form-control" placeholder="Civic" required />
+                </div>
+              </div>
+
+              <!-- Service Selection & Alberta GST Estimate -->
+              <h6 class="text-uppercase text-muted fw-bold small mb-3">3. Requested Services &amp; Estimate</h6>
+              <div class="row g-3 mb-3">
+                <div class="col-md-8">
+                  <label class="form-label">Select Standard Service *</label>
+                  <select id="serviceSelect" class="form-select" onchange="onClientServiceChange()" required>
+                    <option value="">-- Loading Services Catalog --</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Estimated Base Price</label>
+                  <input type="text" id="serviceBasePriceDisplay" class="form-control bg-light" value="$0.00" readonly />
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label">Additional Concern / Symptom Description</label>
+                <textarea id="customDesc" class="form-control" rows="3" placeholder="Describe any noises, warning lights, or specific requests..."></textarea>
+              </div>
+
+              <!-- Live Alberta GST Breakdown Box -->
+              <div class="bg-light border rounded p-3 mb-4">
+                <div class="d-flex justify-content-between small mb-1">
+                  <span>Estimated Labor / Service (GST Exempt in AB School Shop):</span>
+                  <span id="estLaborDisplay">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                  <span>Shop Supplies Fee (Taxable):</span>
+                  <span id="estShopFeeDisplay">$10.00</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                  <span>Alberta GST (5% on Parts &amp; Shop Supplies Only):</span>
+                  <span id="estGstDisplay">$0.50</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between fw-bold">
+                  <span>Preliminary Total Estimate:</span>
+                  <span id="estTotalDisplay" class="text-primary">$10.50</span>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleClientSection('history')">Cancel</button>
+                <button type="submit" id="btnSubmitOrder" class="btn btn-success px-4">
+                  <i class="bi bi-send-check me-1"></i>Submit Work Order
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- SHOP TERMINAL VIEW (STUDENT & INSTRUCTOR) -->
+    <!-- ===================================================================== -->
+    <!-- VIEW 2: INSTRUCTOR & STUDENT SHOP FLOOR TERMINAL                      -->
+    <!-- ===================================================================== -->
     <div id="viewShopTerminal" class="d-none">
-      <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h2 id="terminalHeading" class="mb-0">Shop Terminal</h2>
-          <small id="terminalRoleBadge" class="text-muted"></small>
+          <h3 id="terminalHeading" class="fw-bold mb-1">Shop Floor Terminal</h3>
+          <span id="terminalRoleBadge" class="badge bg-dark">Signed in</span>
         </div>
-        <button class="btn btn-outline-dark btn-sm" onclick="loadShopJobs()">Refresh Orders</button>
+        <div class="d-flex gap-2">
+          <select id="filterJobStatus" class="form-select form-select-sm" onchange="renderShopJobs()">
+            <option value="ALL">All Work Orders</option>
+            <option value="Requested - Pending Review">Pending Review</option>
+            <option value="Approved / In Progress">Approved / In Progress</option>
+            <option value="Requires Attention - Student Update">Student Updates</option>
+            <option value="Work Completed">Completed</option>
+          </select>
+          <button class="btn btn-outline-primary btn-sm" onclick="loadShopJobs()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
       </div>
-      <div id="shopJobList" class="row g-3"><p class="text-muted">Loading work orders...</p></div>
+
+      <!-- Shop Jobs Grid -->
+      <div id="shopJobsContainer" class="row g-3">
+        <div class="col-12 text-center py-5 text-muted">
+          <div class="spinner-border spinner-border-sm me-2"></div>Loading shop work orders...
+        </div>
+      </div>
     </div>
 
   </div>
 
-  <!-- EDITABLE WORK ORDER MODAL -->
-  <div class="modal fade" id="editorModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+  <!-- ===================================================================== -->
+  <!-- MODAL: WORK ORDER MANAGEMENT (INSTRUCTOR & STUDENT EDITOR)            -->
+  <!-- ===================================================================== -->
+  <div class="modal fade" id="jobEditorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
-        <div class="modal-header bg-dark text-white">
-          <h5 class="modal-title" id="editorModalTitle">Work Order Editor</h5>
+        <div class="modal-header card-header-navy">
+          <h5 class="modal-title" id="modalJobTitle">Manage Work Order</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <input type="hidden" id="editOrderId">
-          <input type="hidden" id="editCustomerEmail">
-          <input type="hidden" id="editCustomerName">
+          <input type="hidden" id="editOrderId" />
+          <input type="hidden" id="editCustomerEmail" />
+          <input type="hidden" id="editCustomerName" />
 
-          <div id="studentNoticeBanner" class="alert alert-warning d-none">
-            <strong>Student Mode:</strong> Parts, labor, or fee edits you submit will be flagged as <em>Requires Attention</em> for instructor review.
-          </div>
-
-          <div class="row g-3 mb-4" id="instructorControlsRow">
+          <!-- Vehicle & Client Summary -->
+          <div class="row g-3 bg-light border rounded p-3 mb-4">
             <div class="col-md-4">
-              <label class="form-label">Instructor Decision *</label>
-              <select id="editDecisionAction" class="form-select">
-                <option value="ACCEPT">✓ Approve Work Order / Edits</option>
-                <option value="COUNTER">– Counter Proposal / Reschedule</option>
-                <option value="REJECT">✕ Decline Request</option>
-                <option value="COMPLETE">★ Mark Work Completed & Bill Admin</option>
-              </select>
+              <div class="small text-muted">Customer</div>
+              <div class="fw-bold" id="modalCustomerInfo">-</div>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Assigned Student Name</label>
-              <input type="text" id="editStudentAssigned" class="form-control" placeholder="e.g. Purva Patel">
+              <div class="small text-muted">Vehicle &amp; Odometer</div>
+              <div class="fw-bold" id="modalVehicleInfo">-</div>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Assigned Student Email (For RLS Access)</label>
-              <input type="email" id="editStudentAssignedEmail" class="form-control" placeholder="student@example.com">
+              <div class="small text-muted">VIN &amp; Requested Service</div>
+              <div class="fw-bold" id="modalServiceInfo">-</div>
             </div>
           </div>
 
-          <h6>Itemized Services, Parts & Labor</h6>
-          <table class="table table-bordered mb-2">
-            <thead class="table-light">
-              <tr>
-                <th style="width: 180px;">Type (Tax Rule)</th>
-                <th>Description / Part Name</th>
-                <th style="width: 140px;">Price ($)</th>
-                <th style="width: 60px;">Remove</th>
-              </tr>
-            </thead>
-            <tbody id="lineItemsTableBody"></tbody>
-          </table>
-
-          <div class="d-flex gap-2 mb-4">
-            <button type="button" class="btn btn-sm btn-outline-dark" onclick="addInvoiceLineItem('Part', 'Replacement Part', 0)">+ Add Part (5% GST)</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addInvoiceLineItem('Labor', 'Shop Labor / Service', 0)">+ Add Labor (No GST)</button>
+          <!-- Instructor Assignment Section (Visible to Teachers Only) -->
+          <div id="instructorAssignmentPanel" class="card border-warning mb-4 d-none">
+            <div class="card-header bg-warning bg-opacity-25 fw-bold">
+              <i class="bi bi-person-badge me-1"></i>Instructor Assignment &amp; Scheduling
+            </div>
+            <div class="card-body row g-3">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Assigned Student Name</label>
+                <input type="text" id="editStudentName" class="form-control form-control-sm" placeholder="e.g. Alex Smith" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Assigned Student Email (Grants RLS Access)</label>
+                <input type="email" id="editStudentEmail" class="form-control form-control-sm" placeholder="student@lchs.ca" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Counter-Proposal Date (If Countering)</label>
+                <input type="date" id="editCounterDate" class="form-control form-control-sm" />
+              </div>
+            </div>
           </div>
 
-          <div class="row border-top pt-3">
-            <div class="col-md-6">
-              <label class="form-label">Technician / Instructor Notes</label>
-              <textarea id="editNotes" class="form-control" rows="3"></textarea>
+          <!-- Line Items (Parts vs Labor for Alberta GST) -->
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold mb-0">Parts &amp; Labor Line Items</h6>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="addLineItemRow('part')">
+                <i class="bi bi-plus-circle me-1"></i>Add Part (5% GST)
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLineItemRow('labor')">
+                <i class="bi bi-plus-circle me-1"></i>Add Labor/Service (0% GST)
+              </button>
             </div>
-            <div class="col-md-6">
-              <div class="bg-light p-3 rounded border">
-                <div class="d-flex justify-content-between mb-1"><span>Labor / Services (GST Exempt):</span><strong id="calcLaborSub">$0.00</strong></div>
-                <div class="d-flex justify-content-between mb-1"><span>Parts Subtotal (Taxable):</span><strong id="calcPartsSub">$0.00</strong></div>
-                <div class="d-flex justify-content-between mb-2 align-items-center">
-                  <span>Shop Supplies Fee (Taxable $):</span>
-                  <input type="number" id="calcShopFee" class="form-control form-control-sm text-end" style="width: 100px;" value="10.00" oninput="recalculateInvoiceTotals()">
+          </div>
+
+          <div class="table-responsive mb-3">
+            <table class="table table-sm table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 160px;">Type</th>
+                  <th>Description / Part Name</th>
+                  <th style="width: 150px;">Price ($)</th>
+                  <th style="width: 60px;">Remove</th>
+                </tr>
+              </thead>
+              <tbody id="lineItemsTableBody"></tbody>
+            </table>
+          </div>
+
+          <!-- Totals & Notes -->
+          <div class="row g-3">
+            <div class="col-md-7">
+              <label class="form-label fw-bold small">Technician / Instructor Notes</label>
+              <textarea id="editDecisionNotes" class="form-control" rows="4" placeholder="Enter inspection findings, torque specs, or completion notes..."></textarea>
+            </div>
+            <div class="col-md-5">
+              <div class="bg-light border rounded p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="small">Shop Supplies Fee ($):</span>
+                  <input type="number" id="editShopFee" class="form-control form-control-sm text-end" style="width: 100px;" step="0.01" value="10.00" oninput="recalculateModalTotals()" />
                 </div>
-                <div class="d-flex justify-content-between mb-2">
-                  <span>GST (5% on Parts + Supplies only):</span>
-                  <strong id="calcGst">$0.00</strong>
+                <div class="d-flex justify-content-between small mb-1">
+                  <span>Parts Subtotal (Taxable):</span>
+                  <span id="modalPartsSub">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                  <span>Labor Subtotal (GST Exempt):</span>
+                  <span id="modalLaborSub">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                  <span>Alberta GST (5% Parts + Supplies):</span>
+                  <span id="modalGst">$0.00</span>
                 </div>
                 <hr class="my-2">
-                <div class="d-flex justify-content-between h5 text-dark mb-0"><strong>Total Amount Due:</strong><strong id="calcTotal">$0.00</strong></div>
+                <div class="d-flex justify-content-between fw-bold fs-5">
+                  <span>Total:</span>
+                  <span id="modalGrandTotal" class="text-success">$0.00</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+
+        <!-- Modal Footer Actions -->
+        <div class="modal-footer justify-content-between">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-dark" id="saveOrderBtn" onclick="saveAndDispatchOrder()">Save & Submit</button>
+          <div id="modalActionButtons" class="d-flex flex-wrap gap-2"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
+    // =========================================================================
+    // 1. CONFIGURATION (FILL IN YOUR KEYS HERE - NO TRAILING SLASHES)
+    // =========================================================================
     const SUPABASE_URL = 'https://vggwsbaycxvbtcomakuw.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_t9pJSkenb6NAle2ox4iHtA_LcHpVtOT';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
     const WORKER_BASE = 'https://form-handler.oehlerking-w.workers.dev';
-    const GOOGLE_CLIENT_ID = '964838190225-qocdtctuvhddogvp5lk5nv162heeehbp.apps.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Sync Google Client ID attribute dynamically if updated above
+    document.addEventListener('DOMContentLoaded', () => {
+      const gOnload = document.getElementById('g_id_onload');
+      if (gOnload && GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('YOUR_')) {
+        gOnload.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
+      }
+      if (SUPABASE_ANON_KEY.startsWith('YOUR_') || GOOGLE_CLIENT_ID.startsWith('YOUR_')) {
+        document.getElementById('configWarning').classList.remove('d-none');
+      }
+    });
 
+    // Initialize Supabase Client
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Application State
     let currentSession = null;
     let currentUserRole = 'client';
-    let portalData = { services: [], settings: { gstRate: 0.05, shopFee: 10.00 } };
-    let shopJobs = [];
+    let portalCatalog = { services: [], parts: [], settings: { gstRate: 0.05, shopFee: 10.00 } };
+    let allLoadedJobs = [];
+    let jobModalInstance = null;
 
-    window.onload = async function() {
-      const todayStr = new Date().toISOString().split('T')[0];
-      document.getElementById('preferredDate').min = todayStr;
+    // =========================================================================
+    // 2. AUTHENTICATION & ROLE ROUTING (LOWERCASE 'user_roles')
+    // =========================================================================
+    window.onload = async () => {
+      jobModalInstance = new bootstrap.Modal(document.getElementById('jobEditorModal'));
+      await loadPortalCatalog();
 
-      fetch(`${WORKER_BASE}/api/getPortalData`)
-        .then(res => res.json())
-        .then(data => {
-          portalData = data || portalData;
-          initServiceCatalog(portalData.services || []);
-        });
-
+      // Check existing active Supabase session
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         await handleAuthenticatedUser(session);
       }
-
-      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-        if (session) {
-          await handleAuthenticatedUser(session);
-        }
-      });
     };
 
-    function showAuthMode(mode) {
-      document.getElementById('authGateCard').classList.add('d-none');
-      document.getElementById('googleSigninCard').classList.remove('d-none');
-      
-      const title = document.getElementById('signinCardTitle');
-      const desc = document.getElementById('signinCardDesc');
-      
-      if (mode === 'client') {
-        title.textContent = "Client Portal Sign-In";
-        desc.textContent = "Authenticate with your Google account to book service and view your vehicle history.";
-      } else {
-        title.textContent = "Shop Terminal Sign-In";
-        desc.textContent = "Authenticate with your authorized LCHS student or instructor Google account.";
-      }
-
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredentialResponse
-      });
-      
-      document.getElementById('googleButtonContainer').innerHTML = '';
-      google.accounts.id.renderButton(
-        document.getElementById('googleButtonContainer'),
-        { theme: 'outline', size: 'large', width: 350 }
-      );
-    }
-
-    function resetToHomeGate() {
-      document.getElementById('googleSigninCard').classList.add('d-none');
-      document.getElementById('authGateCard').classList.remove('d-none');
-    }
-
     async function handleGoogleCredentialResponse(response) {
-      const { data, error } = await supabaseClient.auth.signInWithIdToken({
-        provider: 'google',
-        token: response.credential,
-      });
-
-      if (error) {
-        alert("Authentication error: " + error.message);
-      } else if (data.session) {
-        await handleAuthenticatedUser(data.session);
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithIdToken({
+          provider: 'google',
+          token: response.credential
+        });
+        if (error) throw error;
+        if (data && data.session) {
+          await handleAuthenticatedUser(data.session);
+        }
+      } catch (err) {
+        showAlert(`Google Sign-In Error: ${err.message}`, 'danger');
       }
-    }
-
-    async function signOutGoogle() {
-      await supabaseClient.auth.signOut();
-      window.location.reload();
     }
 
     async function handleAuthenticatedUser(session) {
       currentSession = session;
       const user = session.user;
+
       document.getElementById('authGateCard').classList.add('d-none');
       document.getElementById('googleSigninCard').classList.add('d-none');
       document.getElementById('btnSignOut').classList.remove('d-none');
 
-      const { data: roleRecord } = await supabaseClient
-        .from('User_Roles')
+      const navBadge = document.getElementById('navUserBadge');
+      navBadge.textContent = user.email;
+      navBadge.classList.remove('d-none');
+
+      // Query lowercase 'user_roles' table in Supabase
+      const { data: roleRecord, error } = await supabaseClient
+        .from('user_roles')
         .select('role, full_name')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      currentUserRole = roleRecord ? roleRecord.role : 'client';
+      if (error) {
+        console.error('Role lookup error:', error);
+        showAlert(`Role lookup warning (${error.code || 'RLS'}): ${error.message}`, 'warning');
+      }
+
+      // Normalize role string to lowercase to prevent 'Teacher' vs 'teacher' mismatches
+      const rawRole = (roleRecord && roleRecord.role) ? roleRecord.role : 'client';
+      currentUserRole = rawRole.trim().toLowerCase();
       const displayName = (roleRecord && roleRecord.full_name) || user.user_metadata?.full_name || user.email;
 
-      if (currentUserRole === 'teacher' || currentUserRole === 'student') {
+      // Reset both views cleanly
+      document.getElementById('viewShopTerminal').classList.add('d-none');
+      document.getElementById('viewClientDashboard').classList.add('d-none');
+
+      if (currentUserRole === 'teacher' || currentUserRole === 'instructor' || currentUserRole === 'student') {
+        const isInstructor = (currentUserRole === 'teacher' || currentUserRole === 'instructor');
         document.getElementById('viewShopTerminal').classList.remove('d-none');
-        document.getElementById('terminalHeading').textContent = currentUserRole === 'teacher' ? 'Instructor Management Console' : 'Student Shop Floor Terminal';
+        document.getElementById('terminalHeading').textContent = isInstructor
+          ? 'Instructor Management Console'
+          : 'Student Shop Floor Terminal';
         document.getElementById('terminalRoleBadge').textContent = `Signed in as ${displayName} (${currentUserRole.toUpperCase()})`;
-        loadShopJobs();
+        await loadShopJobs();
       } else {
         document.getElementById('viewClientDashboard').classList.remove('d-none');
         document.getElementById('clientDashboardName').textContent = `Welcome, ${displayName}`;
         document.getElementById('clientDashboardEmail').textContent = user.email;
-        loadClientHistory();
+        document.getElementById('custName').value = displayName;
+        document.getElementById('custEmail').value = user.email;
+        await loadClientHistory();
       }
     }
 
-    function initServiceCatalog(services) {
-      let container = document.getElementById('serviceCardsContainer');
-      container.innerHTML = '';
-      if (!services || services.length === 0) {
-        container.innerHTML = '<div class="col-12 text-muted">No active service packages found in catalog.</div>';
+    async function signOutUser() {
+      await supabaseClient.auth.signOut();
+      currentSession = null;
+      currentUserRole = 'client';
+      allLoadedJobs = [];
+
+      document.getElementById('viewShopTerminal').classList.add('d-none');
+      document.getElementById('viewClientDashboard').classList.add('d-none');
+      document.getElementById('btnSignOut').classList.add('d-none');
+      document.getElementById('navUserBadge').classList.add('d-none');
+      document.getElementById('authGateCard').classList.remove('d-none');
+      document.getElementById('googleSigninCard').classList.remove('d-none');
+    }
+
+    // =========================================================================
+    // 3. PORTAL CATALOG & NHTSA VIN DECODER
+    // =========================================================================
+    async function loadPortalCatalog() {
+      try {
+        const resp = await fetch(`${WORKER_BASE}/api/getPortalData`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        portalCatalog = data;
+
+        const select = document.getElementById('serviceSelect');
+        select.innerHTML = '<option value="">-- Choose a Service --</option>';
+        (data.services || []).forEach(svc => {
+          const opt = document.createElement('option');
+          opt.value = svc.name;
+          opt.dataset.price = svc.basePrice;
+          opt.textContent = `${svc.name} ($${Number(svc.basePrice).toFixed(2)})`;
+          select.appendChild(opt);
+        });
+        const otherOpt = document.createElement('option');
+        otherOpt.value = 'Custom / Diagnostic Inspection';
+        otherOpt.dataset.price = '0';
+        otherOpt.textContent = 'Custom / Diagnostic Inspection (Quote Required)';
+        select.appendChild(otherOpt);
+
+        onClientServiceChange();
+      } catch (err) {
+        console.error('Failed to load catalog:', err);
+      }
+    }
+
+    function onClientServiceChange() {
+      const select = document.getElementById('serviceSelect');
+      const selectedOpt = select.options[select.selectedIndex];
+      const basePrice = selectedOpt && selectedOpt.dataset.price ? Number(selectedOpt.dataset.price) : 0;
+      const shopFee = Number(portalCatalog.settings?.shopFee ?? 10.00);
+
+      // Alberta GST rule: 5% applies ONLY to Parts + Shop Supplies (Labor/Services are exempt)
+      const gst = Number((shopFee * 0.05).toFixed(2));
+      const total = Number((basePrice + shopFee + gst).toFixed(2));
+
+      document.getElementById('serviceBasePriceDisplay').value = `$${basePrice.toFixed(2)}`;
+      document.getElementById('estLaborDisplay').textContent = `$${basePrice.toFixed(2)}`;
+      document.getElementById('estShopFeeDisplay').textContent = `$${shopFee.toFixed(2)}`;
+      document.getElementById('estGstDisplay').textContent = `$${gst.toFixed(2)}`;
+      document.getElementById('estTotalDisplay').textContent = `$${total.toFixed(2)}`;
+    }
+
+    async function decodeVinNHTSA() {
+      const vin = document.getElementById('vehVin').value.trim().toUpperCase();
+      const statusEl = document.getElementById('vinDecodeStatus');
+      if (vin.length !== 17) {
+        statusEl.innerHTML = '<span class="text-danger">Please enter a valid 17-character VIN.</span>';
         return;
       }
 
-      services.forEach((s, idx) => {
-        let price = Number(s.basePrice ?? s.Base_Price ?? 0);
-        let category = s.category || 'General Service';
-        
-        let col = document.createElement('div');
-        col.className = 'col-md-6';
-        col.innerHTML = `
-          <div class="service-card" id="card-${idx}" onclick="toggleServiceCard(${idx})">
-            <div class="d-flex justify-content-between align-items-start mb-1">
-              <div class="form-check">
-                <input class="form-check-input service-checkbox" type="checkbox" value="${s.name}" data-price="${price}" id="chk-${idx}" onclick="event.stopPropagation(); toggleServiceCard(${idx})">
-                <label class="form-check-label font-weight-bold text-dark" for="chk-${idx}">${s.name}</label>
-              </div>
-              <span class="badge bg-dark">$${price.toFixed(2)}</span>
-            </div>
-            <small class="text-muted d-block ms-4">Category: ${category} &bull; Labor (No GST)</small>
-          </div>
-        `;
-        container.appendChild(col);
-      });
-      calculateClientEstimate();
-    }
-
-    function toggleServiceCard(idx) {
-      let chk = document.getElementById(`chk-${idx}`);
-      let card = document.getElementById(`card-${idx}`);
-      chk.checked = !chk.checked;
-      card.classList.toggle('selected', chk.checked);
-      calculateClientEstimate();
-    }
-
-    function calculateClientEstimate() {
-      let laborTotal = 0;
-      let count = 0;
-      document.querySelectorAll('.service-checkbox').forEach(chk => {
-        if (chk.checked) {
-          laborTotal += parseFloat(chk.dataset.price) || 0;
-          count++;
+      statusEl.innerHTML = '<span class="text-muted">Decoding VIN via NHTSA...</span>';
+      try {
+        const resp = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`);
+        const data = await resp.json();
+        const result = data.Results && data.Results[0];
+        if (result && result.ModelYear && result.Make) {
+          document.getElementById('vehYear').value = result.ModelYear;
+          document.getElementById('vehMake').value = result.Make;
+          document.getElementById('vehModel').value = result.Model || '';
+          statusEl.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>Decoded: ${result.ModelYear} ${result.Make} ${result.Model || ''}</span>`;
+        } else {
+          statusEl.innerHTML = '<span class="text-warning">VIN not found in NHTSA database. Please enter Year/Make/Model manually.</span>';
         }
-      });
-
-      let shopFee = count > 0 ? (portalData.settings.shopFee ?? 10.00) : 0;
-      let subtotal = laborTotal + shopFee;
-      let gst = shopFee * (portalData.settings.gstRate || 0.05);
-      let total = subtotal + gst;
-
-      document.getElementById('dispLabor').textContent = `$${laborTotal.toFixed(2)}`;
-      document.getElementById('dispFee').textContent = `$${shopFee.toFixed(2)}`;
-      document.getElementById('dispSub').textContent = `$${subtotal.toFixed(2)}`;
-      document.getElementById('dispGST').textContent = `$${gst.toFixed(2)}`;
-      document.getElementById('displayTotal').textContent = `$${total.toFixed(2)}`;
-    }
-
-    function switchClientTab(tab) {
-      if (tab === 'booking') {
-        document.getElementById('tabLinkBooking').classList.add('active');
-        document.getElementById('tabLinkHistory').classList.remove('active');
-        document.getElementById('clientTabBooking').classList.remove('d-none');
-        document.getElementById('clientTabHistory').classList.add('d-none');
-      } else {
-        document.getElementById('tabLinkHistory').classList.add('active');
-        document.getElementById('tabLinkBooking').classList.remove('active');
-        document.getElementById('clientTabHistory').classList.remove('d-none');
-        document.getElementById('clientTabBooking').classList.add('d-none');
+      } catch (err) {
+        statusEl.innerHTML = '<span class="text-danger">Unable to reach NHTSA VIN service.</span>';
       }
     }
 
-    function loadClientHistory() {
-      fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
-        headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
-      })
-      .then(res => res.json())
-      .then(jobs => {
-        const container = document.getElementById('clientHistoryList');
-        if (!Array.isArray(jobs) || jobs.length === 0) {
-          container.innerHTML = '<div class="alert alert-light border">No previous service records found for your account.</div>';
-          return;
-        }
-        container.innerHTML = jobs.map(j => `
-          <div class="p-3 bg-light border rounded mb-2">
-            <div class="d-flex justify-content-between">
-              <strong>${j.orderId} &mdash; ${j.vehicleYear} ${j.vehicleMake} ${j.vehicleModel}</strong>
-              <span class="badge ${getBadgeClass(j.status)}">${j.status}</span>
-            </div>
-            <small class="text-muted">Odometer: ${j.odometer || 'N/A'} km &bull; Services: ${j.service} &bull; Total: $${Number(j.totalEstimate).toFixed(2)}</small>
-          </div>
-        `).join('');
-      });
+    // =========================================================================
+    // 4. CLIENT DASHBOARD & WORK ORDER SUBMISSION
+    // =========================================================================
+    function toggleClientSection(section) {
+      const historyDiv = document.getElementById('sectionClientHistory');
+      const newDiv = document.getElementById('sectionClientNewRequest');
+      const tabHist = document.getElementById('tabClientHistory');
+      const tabNew = document.getElementById('tabClientNew');
+
+      if (section === 'newRequest') {
+        historyDiv.classList.add('d-none');
+        newDiv.classList.remove('d-none');
+        tabHist.classList.remove('active');
+        tabNew.classList.add('active');
+      } else {
+        newDiv.classList.add('d-none');
+        historyDiv.classList.remove('d-none');
+        tabNew.classList.remove('active');
+        tabHist.classList.add('active');
+      }
     }
 
-    function loadShopJobs() {
-      fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
-        headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
-      })
-      .then(res => res.json())
-      .then(jobs => {
-        shopJobs = Array.isArray(jobs) ? jobs : [];
-        const container = document.getElementById('shopJobList');
-        if (shopJobs.length === 0) {
-          container.innerHTML = `<div class="col-12"><div class="alert alert-info">No work orders assigned to your account.</div></div>`;
-          return;
+    async function loadClientHistory() {
+      const container = document.getElementById('clientOrdersList');
+      container.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading your work orders...</div>';
+
+      try {
+        const resp = await fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
+          headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
+        });
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || errData.message || `HTTP ${resp.status}`);
         }
-        container.innerHTML = shopJobs.map((j, idx) => `
-          <div class="col-md-6">
-            <div class="card p-3 border shadow-sm h-100">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="text-dark mb-0">${j.orderId}</h5>
-                <span class="badge ${getBadgeClass(j.status)}">${j.status}</span>
+        const jobs = await resp.json();
+        allLoadedJobs = Array.isArray(jobs) ? jobs : [];
+
+        if (allLoadedJobs.length === 0) {
+          container.innerHTML = `
+            <div class="col-12">
+              <div class="card border-0 shadow-sm text-center p-5">
+                <i class="bi bi-clipboard-x fs-1 text-muted mb-2"></i>
+                <h5>No Work Orders Found</h5>
+                <p class="text-muted">Click "New Service Request" above to schedule your vehicle.</p>
               </div>
-              <p class="mb-1"><strong>Vehicle:</strong> ${j.vehicleYear || ''} ${j.vehicleMake || ''} ${j.vehicleModel || ''}</p>
-              <p class="mb-1"><strong>Client:</strong> ${j.customerName}</p>
-              <p class="mb-1"><strong>Assigned Tech:</strong> ${j.studentAssigned || 'Unassigned'}</p>
-              <p class="mb-3"><strong>Total Estimate:</strong> $${Number(j.totalEstimate || 0).toFixed(2)}</p>
-              <button class="btn btn-sm btn-dark w-100 mt-auto" onclick="openEditorModal(${idx})">Open Work Order Editor</button>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = allLoadedJobs.map(job => `
+          <div class="col-md-6">
+            <div class="card shadow-sm border-0 job-card h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <span class="fw-bold text-primary">${escapeHtml(job.orderId)}</span>
+                  <span class="badge ${getStatusBadgeClass(job.status)} badge-status">${escapeHtml(job.status)}</span>
+                </div>
+                <h5 class="card-title mb-1">${escapeHtml(job.vehicleYear || '')} ${escapeHtml(job.vehicleMake || '')} ${escapeHtml(job.vehicleModel || '')}</h5>
+                <p class="text-muted small mb-2">Service: <strong>${escapeHtml(job.service || 'General Service')}</strong></p>
+                ${job.notes ? `<div class="alert alert-light border small py-2 mb-2"><strong>Shop Notes:</strong> ${escapeHtml(job.notes)}</div>` : ''}
+                <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-3">
+                  <span class="small text-muted">GST: $${Number(job.gst || 0).toFixed(2)}</span>
+                  <span class="fw-bold">Estimate / Total: $${Number(job.totalEstimate || 0).toFixed(2)}</span>
+                </div>
+              </div>
             </div>
           </div>
         `).join('');
-      });
+      } catch (err) {
+        container.innerHTML = `<div class="col-12"><div class="alert alert-danger">Error loading work orders: ${escapeHtml(err.message)}</div></div>`;
+      }
     }
 
-    function getBadgeClass(status) {
-      if (!status) return 'bg-warning text-dark';
-      const s = status.toLowerCase();
-      if (s.includes('complete')) return 'bg-secondary';
-      if (s.includes('approve') || s.includes('progress')) return 'bg-success';
-      if (s.includes('counter') || s.includes('reschedule')) return 'badge-orange';
-      if (s.includes('decline') || s.includes('reject')) return 'bg-danger';
-      return 'bg-warning text-dark';
+    async function submitNewWorkOrder(event) {
+      event.preventDefault();
+      const btn = document.getElementById('btnSubmitOrder');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Submitting...';
+
+      const select = document.getElementById('serviceSelect');
+      const selectedOpt = select.options[select.selectedIndex];
+      const basePrice = selectedOpt && selectedOpt.dataset.price ? Number(selectedOpt.dataset.price) : 0;
+      const shopFee = Number(portalCatalog.settings?.shopFee ?? 10.00);
+
+      const lineItems = basePrice > 0
+        ? [{ type: 'labor', description: select.value, price: basePrice }]
+        : [];
+
+      const payload = {
+        customerName: document.getElementById('custName').value.trim(),
+        customerEmail: document.getElementById('custEmail').value.trim(),
+        customerPhone: document.getElementById('custPhone').value.trim(),
+        vin: document.getElementById('vehVin').value.trim().toUpperCase(),
+        odometer: document.getElementById('vehOdometer').value,
+        preferredDate: document.getElementById('prefDate').value,
+        vehicleYear: document.getElementById('vehYear').value,
+        vehicleMake: document.getElementById('vehMake').value.trim(),
+        vehicleModel: document.getElementById('vehModel').value.trim(),
+        serviceSelected: select.value,
+        customDescription: document.getElementById('customDesc').value.trim(),
+        shopFee: shopFee,
+        lineItems: lineItems
+      };
+
+      try {
+        const resp = await fetch(`${WORKER_BASE}/api/submitWorkOrder`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.success) throw new Error(result.message || 'Submission failed.');
+
+        showAlert(`Work Order <strong>${result.invoiceNumber}</strong> submitted successfully!`, 'success');
+        document.getElementById('workOrderForm').reset();
+        document.getElementById('custEmail').value = currentSession.user.email;
+        toggleClientSection('history');
+        await loadClientHistory();
+      } catch (err) {
+        showAlert(`Error submitting work order: ${err.message}`, 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send-check me-1"></i>Submit Work Order';
+      }
     }
 
-    function openEditorModal(idx) {
-      const j = shopJobs[idx];
-      document.getElementById('editorModalTitle').textContent = `Work Order Editor: ${j.orderId}`;
-      document.getElementById('editOrderId').value = j.orderId;
-      document.getElementById('editCustomerEmail').value = j.customerEmail;
-      document.getElementById('editCustomerName').value = j.customerName;
-      document.getElementById('editStudentAssigned').value = j.studentAssigned || '';
-      document.getElementById('editStudentAssignedEmail').value = j.studentAssignedEmail || '';
-      document.getElementById('editNotes').value = j.notes || '';
-      document.getElementById('calcShopFee').value = j.shopFee ?? 10.00;
+    // =========================================================================
+    // 5. SHOP FLOOR TERMINAL (INSTRUCTOR & STUDENT VIEWS)
+    // =========================================================================
+    async function loadShopJobs() {
+      const container = document.getElementById('shopJobsContainer');
+      container.innerHTML = '<div class="col-12 text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading shop work orders...</div>';
 
-      const isTeacher = currentUserRole === 'teacher';
-      document.getElementById('instructorControlsRow').style.display = isTeacher ? 'flex' : 'none';
-      document.getElementById('studentNoticeBanner').classList.toggle('d-none', isTeacher);
-      document.getElementById('saveOrderBtn').textContent = isTeacher ? 'Approve & Save Changes' : 'Submit Changes to Instructor';
+      try {
+        const resp = await fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
+          headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
+        });
 
-      const body = document.getElementById('lineItemsTableBody');
-      body.innerHTML = '';
-      const items = (j.lineItems && j.lineItems.length > 0) ? j.lineItems : [{ type: 'Labor', name: j.service || 'Inspection', price: 0 }];
-      items.forEach(item => addInvoiceLineItem(item.type || 'Labor', item.name, item.price));
-      recalculateInvoiceTotals();
+        if (!resp.ok) {
+          const errBody = await resp.json().catch(() => ({}));
+          throw new Error(errBody.error || errBody.message || `Server returned HTTP ${resp.status}`);
+        }
 
-      new bootstrap.Modal(document.getElementById('editorModal')).show();
+        const jobs = await resp.json();
+        allLoadedJobs = Array.isArray(jobs) ? jobs : [];
+        renderShopJobs();
+      } catch (err) {
+        container.innerHTML = `
+          <div class="col-12">
+            <div class="alert alert-danger">
+              <strong>Failed to load shop work orders:</strong> ${escapeHtml(err.message)}
+            </div>
+          </div>`;
+      }
     }
 
-    function addInvoiceLineItem(type, name, price) {
-      const body = document.getElementById('lineItemsTableBody');
+    function renderShopJobs() {
+      const container = document.getElementById('shopJobsContainer');
+      const filter = document.getElementById('filterJobStatus').value;
+
+      const filtered = filter === 'ALL'
+        ? allLoadedJobs
+        : allLoadedJobs.filter(j => j.status === filter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-12">
+            <div class="card border-0 shadow-sm text-center p-5">
+              <i class="bi bi-inbox fs-1 text-muted mb-2"></i>
+              <h5>No Work Orders Match Filter</h5>
+              <p class="text-muted mb-0">There are currently no work orders in this view.</p>
+            </div>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(job => `
+        <div class="col-md-6 col-lg-4">
+          <div class="card shadow-sm border-0 job-card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-bold text-primary">${escapeHtml(job.orderId)}</span>
+                <span class="badge ${getStatusBadgeClass(job.status)} badge-status">${escapeHtml(job.status)}</span>
+              </div>
+              <h5 class="card-title mb-1">${escapeHtml(job.vehicleYear || '')} ${escapeHtml(job.vehicleMake || '')} ${escapeHtml(job.vehicleModel || '')}</h5>
+              <div class="small text-muted mb-2">
+                <i class="bi bi-person me-1"></i>${escapeHtml(job.customerName || 'Client')} (${escapeHtml(job.customerPhone || 'No phone')})
+              </div>
+              <p class="small mb-2"><strong>Service:</strong> ${escapeHtml(job.service || '-')}</p>
+              <div class="small mb-3">
+                <span class="text-muted">Assigned Tech:</span>
+                <strong>${escapeHtml(job.studentAssigned || 'Unassigned')}</strong>
+              </div>
+              <div class="mt-auto border-top pt-2 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark">$${Number(job.totalEstimate || 0).toFixed(2)}</span>
+                <button class="btn btn-sm btn-primary" onclick="openJobEditor('${escapeHtml(job.orderId)}')">
+                  <i class="bi bi-pencil-square me-1"></i>Open Job
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openJobEditor(orderId) {
+      const job = allLoadedJobs.find(j => j.orderId === orderId);
+      if (!job) return;
+
+      const isInstructor = (currentUserRole === 'teacher' || currentUserRole === 'instructor');
+
+      document.getElementById('modalJobTitle').textContent = `Work Order ${job.orderId} — ${job.status}`;
+      document.getElementById('editOrderId').value = job.orderId;
+      document.getElementById('editCustomerEmail').value = job.customerEmail || '';
+      document.getElementById('editCustomerName').value = job.customerName || '';
+
+      document.getElementById('modalCustomerInfo').textContent = `${job.customerName || ''} (${job.customerEmail || ''})`;
+      document.getElementById('modalVehicleInfo').textContent = `${job.vehicleYear || ''} ${job.vehicleMake || ''} ${job.vehicleModel || ''} • ${job.odometer || 0} km`;
+      document.getElementById('modalServiceInfo').textContent = `${job.service || ''} (VIN: ${job.vin || 'N/A'})`;
+
+      document.getElementById('editStudentName').value = job.studentAssigned || '';
+      document.getElementById('editStudentEmail').value = job.studentAssignedEmail || '';
+      document.getElementById('editDecisionNotes').value = job.notes || '';
+      document.getElementById('editShopFee').value = Number(job.shopFee ?? 10).toFixed(2);
+
+      // Show instructor assignment controls only to teachers
+      const assignPanel = document.getElementById('instructorAssignmentPanel');
+      if (isInstructor) {
+        assignPanel.classList.remove('d-none');
+      } else {
+        assignPanel.classList.add('d-none');
+      }
+
+      // Populate Line Items
+      const tbody = document.getElementById('lineItemsTableBody');
+      tbody.innerHTML = '';
+      const items = Array.isArray(job.lineItems) ? job.lineItems : [];
+      items.forEach(item => addLineItemRow(item.type || 'part', item.description || '', item.price || 0));
+      recalculateModalTotals();
+
+      // Build Role-Appropriate Action Buttons
+      const btnContainer = document.getElementById('modalActionButtons');
+      if (isInstructor) {
+        btnContainer.innerHTML = `
+          <button type="button" class="btn btn-outline-danger" onclick="submitJobDecision('REJECT')">Decline</button>
+          <button type="button" class="btn btn-warning" onclick="submitJobDecision('COUNTER')">Send Counter-Proposal</button>
+          <button type="button" class="btn btn-primary" onclick="submitJobDecision('ACCEPT')">Approve &amp; Assign</button>
+          <button type="button" class="btn btn-success" onclick="submitJobDecision('COMPLETE')">Mark Completed &amp; Invoice</button>
+        `;
+      } else {
+        btnContainer.innerHTML = `
+          <button type="button" class="btn btn-success" onclick="submitJobDecision('STUDENT_SUBMIT')">
+            <i class="bi bi-check2-circle me-1"></i>Submit Work Update to Instructor
+          </button>
+        `;
+      }
+
+      jobModalInstance.show();
+    }
+
+    function addLineItemRow(type = 'part', description = '', price = 0) {
+      const tbody = document.getElementById('lineItemsTableBody');
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>
-          <select class="form-select form-select-sm item-type" onchange="recalculateInvoiceTotals()">
-            <option value="Part" ${type === 'Part' ? 'selected' : ''}>Part (5% GST)</option>
-            <option value="Labor" ${type !== 'Part' ? 'selected' : ''}>Labor / Service (No GST)</option>
+          <select class="form-select form-select-sm item-type" onchange="recalculateModalTotals()">
+            <option value="part" ${String(type).toLowerCase() === 'part' ? 'selected' : ''}>Part (5% GST)</option>
+            <option value="labor" ${String(type).toLowerCase() !== 'part' ? 'selected' : ''}>Labor (0% GST)</option>
           </select>
         </td>
-        <td><input type="text" class="form-control form-control-sm item-name" value="${name}"></td>
-        <td><input type="number" class="form-control form-control-sm item-price text-end" value="${Number(price).toFixed(2)}" step="0.01" oninput="recalculateInvoiceTotals()"></td>
-        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalculateInvoiceTotals();">&times;</button></td>
+        <td>
+          <input type="text" class="form-control form-control-sm item-desc" value="${escapeHtml(description)}" placeholder="Part name or labor description" />
+        </td>
+        <td>
+          <input type="number" class="form-control form-control-sm text-end item-price" step="0.01" value="${Number(price).toFixed(2)}" oninput="recalculateModalTotals()" />
+        </td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalculateModalTotals();">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
       `;
-      body.appendChild(tr);
-      recalculateInvoiceTotals();
+      tbody.appendChild(tr);
+      recalculateModalTotals();
     }
 
-    function recalculateInvoiceTotals() {
+    function recalculateModalTotals() {
       let partsSub = 0;
       let laborSub = 0;
 
       document.querySelectorAll('#lineItemsTableBody tr').forEach(tr => {
         const type = tr.querySelector('.item-type').value;
-        const price = parseFloat(tr.querySelector('.item-price').value) || 0;
-        if (type === 'Part') {
+        const price = Number(tr.querySelector('.item-price').value || 0);
+        if (type === 'part') {
           partsSub += price;
         } else {
           laborSub += price;
         }
       });
 
-      const shopFee = parseFloat(document.getElementById('calcShopFee').value) || 0;
-      const taxableAmount = partsSub + shopFee;
-      const gst = taxableAmount * 0.05;
-      const total = partsSub + laborSub + shopFee + gst;
+      const shopFee = Number(document.getElementById('editShopFee').value || 0);
+      // Alberta GST rule: 5% ONLY on Parts + Shop Supplies
+      const taxable = partsSub + shopFee;
+      const gst = Number((taxable * 0.05).toFixed(2));
+      const grandTotal = Number((partsSub + laborSub + shopFee + gst).toFixed(2));
 
-      document.getElementById('calcLaborSub').textContent = `$${laborSub.toFixed(2)}`;
-      document.getElementById('calcPartsSub').textContent = `$${partsSub.toFixed(2)}`;
-      document.getElementById('calcGst').textContent = `$${gst.toFixed(2)}`;
-      document.getElementById('calcTotal').textContent = `$${total.toFixed(2)}`;
+      document.getElementById('modalPartsSub').textContent = `$${partsSub.toFixed(2)}`;
+      document.getElementById('modalLaborSub').textContent = `$${laborSub.toFixed(2)}`;
+      document.getElementById('modalGst').textContent = `$${gst.toFixed(2)}`;
+      document.getElementById('modalGrandTotal').textContent = `$${grandTotal.toFixed(2)}`;
     }
 
-    function saveAndDispatchOrder() {
+    async function submitJobDecision(action) {
       const lineItems = [];
       document.querySelectorAll('#lineItemsTableBody tr').forEach(tr => {
         lineItems.push({
           type: tr.querySelector('.item-type').value,
-          name: tr.querySelector('.item-name').value,
-          price: parseFloat(tr.querySelector('.item-price').value) || 0
+          description: tr.querySelector('.item-desc').value.trim(),
+          price: Number(tr.querySelector('.item-price').value || 0)
         });
       });
 
-      const isTeacher = currentUserRole === 'teacher';
-      const action = isTeacher ? document.getElementById('editDecisionAction').value : 'STUDENT_SUBMIT';
-
       const payload = {
+        action: action,
         orderId: document.getElementById('editOrderId').value,
         customerEmail: document.getElementById('editCustomerEmail').value,
         customerName: document.getElementById('editCustomerName').value,
-        action: action,
-        studentAssigned: document.getElementById('editStudentAssigned').value,
-        studentAssignedEmail: document.getElementById('editStudentAssignedEmail').value,
-        shopFee: parseFloat(document.getElementById('calcShopFee').value) || 0,
-        decisionNotes: document.getElementById('editNotes').value,
-        lineItems: lineItems
+        studentAssigned: document.getElementById('editStudentName').value.trim(),
+        studentAssignedEmail: document.getElementById('editStudentEmail').value.trim(),
+        newDate: document.getElementById('editCounterDate').value,
+        shopFee: Number(document.getElementById('editShopFee').value || 0),
+        decisionNotes: document.getElementById('editDecisionNotes').value.trim(),
+        lineItems: lineItems,
+        applyGst: true
       };
 
-      fetch(`${WORKER_BASE}/api/processTeacherDecision`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSession.access_token}`
-        },
-        body: JSON.stringify(payload)
-      })
-      .then(res => res.json())
-      .then(() => {
-        bootstrap.Modal.getInstance(document.getElementById('editorModal')).hide();
-        loadShopJobs();
-      });
-    }
+      try {
+        const resp = await fetch(`${WORKER_BASE}/api/processTeacherDecision`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.success) throw new Error(result.message || 'Failed to update work order.');
 
-    function handleVinTyping(val) {
-      const vin = val.trim().toUpperCase();
-      if (vin.length === 17) {
-        fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${vin}?format=json`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.Results && data.Results.length > 0) {
-              const v = data.Results[0];
-              if (v.ModelYear) document.getElementById('vehicleYear').value = v.ModelYear;
-              if (v.Make) document.getElementById('vehicleMake').value = v.Make;
-              if (v.Model) document.getElementById('vehicleModel').value = v.Model;
-              document.getElementById('vehicleYear').classList.add('vin-autofilled');
-              document.getElementById('vehicleMake').classList.add('vin-autofilled');
-              document.getElementById('vehicleModel').classList.add('vin-autofilled');
-            }
-          }).catch(() => {});
+        jobModalInstance.hide();
+        showAlert(`Work Order <strong>${payload.orderId}</strong> updated (${action}).`, 'success');
+        await loadShopJobs();
+      } catch (err) {
+        showAlert(`Update Error: ${err.message}`, 'danger');
       }
     }
 
-    function decodeVehicleVIN() { handleVinTyping(document.getElementById('vinInput').value); }
-
-    function goToStep(s) {
-      document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
-      document.getElementById('section-' + s).classList.add('active');
+    // =========================================================================
+    // 6. HELPERS
+    // =========================================================================
+    function getStatusBadgeClass(status) {
+      const s = String(status || '').toLowerCase();
+      if (s.includes('completed')) return 'bg-success';
+      if (s.includes('approved') || s.includes('progress')) return 'bg-primary';
+      if (s.includes('attention') || s.includes('counter')) return 'bg-warning text-dark';
+      if (s.includes('declined')) return 'bg-danger';
+      return 'bg-secondary';
     }
 
-    function handleFormSubmit(e) {
-      e.preventDefault();
-      const lineItems = [];
-      document.querySelectorAll('.service-checkbox').forEach(chk => {
-        if (chk.checked) {
-          lineItems.push({ type: 'Labor', name: chk.value, price: parseFloat(chk.dataset.price) || 0 });
-        }
-      });
+    function showAlert(htmlMsg, type = 'info') {
+      const box = document.getElementById('globalAlert');
+      box.className = `alert alert-${type} alert-dismissible fade show`;
+      document.getElementById('globalAlertMessage').innerHTML = htmlMsg;
+    }
 
-      const user = currentSession.user;
-      const formData = {
-        customerName: user.user_metadata?.full_name || user.email.split('@')[0],
-        customerEmail: user.email,
-        customerPhone: document.getElementById('customerPhone').value,
-        customerAddress: document.getElementById('customerAddress').value,
-        customerPostal: document.getElementById('customerPostal').value,
-        vehicleYear: document.getElementById('vehicleYear').value,
-        vehicleMake: document.getElementById('vehicleMake').value,
-        vehicleModel: document.getElementById('vehicleModel').value,
-        odometer: document.getElementById('vehicleOdometer').value,
-        vin: document.getElementById('vinInput').value,
-        serviceSelected: lineItems.map(i => i.name).join(', '),
-        preferredDate: document.getElementById('preferredDate').value,
-        shopFee: portalData.settings.shopFee ?? 10.00,
-        lineItems: lineItems
-      };
+    function hideAlert() {
+      document.getElementById('globalAlert').classList.add('d-none');
+    }
 
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Submitting...";
-
-      fetch(`${WORKER_BASE}/api/submitWorkOrder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSession.access_token}`
-        },
-        body: JSON.stringify(formData)
-      })
-      .then(res => res.json())
-      .then(res => {
-        document.getElementById('workOrderForm').classList.add('d-none');
-        document.getElementById('successMessage').classList.remove('d-none');
-        document.getElementById('outOrderId').textContent = res.invoiceNumber;
-      });
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
   </script>
 </body>
