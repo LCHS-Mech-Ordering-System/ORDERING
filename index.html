@@ -32,31 +32,31 @@
       <small class="opacity-75">Lacombe Composite High School CTE Program</small>
     </div>
     <div id="navButtons" class="d-flex align-items-center gap-2">
-      <button id="btnSignOut" class="btn btn-outline-light btn-sm d-none" onclick="signOutGoogle()">Sign Out</button>
+      <button id="btnSignOut" class="btn btn-outline-light btn-sm d-none" onclick="signOutAll()">Sign Out</button>
     </div>
   </div>
 
   <div class="container mb-5 pt-2" style="max-width: 950px;">
 
-    <!-- UNIFIED HOME GATE (CHOOSE PORTAL OR GOOGLE SIGN-IN) -->
+    <!-- UNIFIED HOME GATE (CHOOSE PORTAL) -->
     <div id="authGateCard" class="card p-5 auth-card text-center">
       <h3 class="text-dark mb-2">LCHS Mechanics Portal</h3>
-      <p class="text-muted small mb-4">Select your portal below and sign in securely with Google Workspace.</p>
+      <p class="text-muted small mb-4">Select your portal below to sign in.</p>
       
       <div class="d-grid gap-3">
-        <button class="btn btn-dark btn-lg py-3" onclick="showAuthMode('client')">
-          Client Portal (Book Service & View History)
+        <button class="btn btn-dark btn-lg py-3" onclick="showClientGoogleGate()">
+          Client Portal (Sign in with Google)
         </button>
-        <button class="btn btn-outline-dark btn-lg py-3" onclick="showAuthMode('shop')">
+        <button class="btn btn-outline-dark btn-lg py-3" onclick="showShopTerminalGate()">
           Shop Floor Terminal (Student / Instructor)
         </button>
       </div>
     </div>
 
-    <!-- SPECIFIC GOOGLE SIGN-IN GATE CARD -->
+    <!-- CLIENT GOOGLE SIGN-IN GATE CARD -->
     <div id="googleSigninCard" class="card p-5 auth-card text-center d-none">
-      <h3 id="signinCardTitle" class="text-dark mb-2">Sign In</h3>
-      <p id="signinCardDesc" class="text-muted small mb-4">Click below to authenticate with your LCHS or Google account.</p>
+      <h3 class="text-dark mb-2">Client Portal Sign-In</h3>
+      <p class="text-muted small mb-4">Authenticate with your Google account to book service and view your vehicle history.</p>
       
       <!-- Official Google Sign-In Render Container -->
       <div class="d-flex justify-content-center mb-3">
@@ -64,6 +64,31 @@
       </div>
 
       <button class="btn btn-link text-muted btn-sm mt-3" onclick="resetToHomeGate()">&larr; Back to Portal Selection</button>
+    </div>
+
+    <!-- SHOP TERMINAL EMAIL + DESK/STATION SIGN-IN CARD -->
+    <div id="shopSigninCard" class="card p-5 auth-card d-none">
+      <div class="text-center mb-4">
+        <h3 class="text-dark mb-1">Shop Floor Terminal</h3>
+        <p class="text-muted small">Sign in with your school email and assigned Desk / Station Number.</p>
+      </div>
+
+      <form onsubmit="handleShopTerminalLogin(event)">
+        <div class="mb-3">
+          <label class="form-label font-weight-bold">Email Address *</label>
+          <input type="email" id="shopLoginEmail" class="form-control" placeholder="name@example.com" required>
+        </div>
+        <div class="mb-4">
+          <label class="form-label font-weight-bold">Desk / Station Number *</label>
+          <input type="password" id="shopLoginStation" class="form-control" placeholder="Enter Desk or Station ID" required>
+        </div>
+        <div id="shopLoginError" class="alert alert-danger d-none small py-2"></div>
+        <button type="submit" id="btnShopLogin" class="btn btn-dark w-100 py-2">Access Shop Terminal</button>
+      </form>
+
+      <div class="text-center mt-3">
+        <button class="btn btn-link text-muted btn-sm" onclick="resetToHomeGate()">&larr; Back to Portal Selection</button>
+      </div>
     </div>
 
     <!-- CLIENT PORTAL VIEW -->
@@ -226,7 +251,7 @@
               <input type="text" id="editStudentAssigned" class="form-control" placeholder="e.g. Purva Patel">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Assigned Student Email (For RLS Access)</label>
+              <label class="form-label">Assigned Student Email</label>
               <input type="email" id="editStudentAssignedEmail" class="form-control" placeholder="student@example.com">
             </div>
           </div>
@@ -283,13 +308,14 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const SUPABASE_URL = 'https://vggwsbaycxvbtcomakuw.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_t9pJSkenb6NAle2ox4iHtA_LcHpVtOT';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
     const WORKER_BASE = 'https://form-handler.oehlerking-w.workers.dev';
-    const GOOGLE_CLIENT_ID = '964838190225-qocdtctuvhddogvp5lk5nv162heeehbp.apps.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentSession = null;
+    let shopAuthSession = null; // Stores { email, station, role, name, token } for desk/station logins
     let currentUserRole = 'client';
     let portalData = { services: [], settings: { gstRate: 0.05, shopFee: 10.00 } };
     let shopJobs = [];
@@ -298,6 +324,7 @@
       const todayStr = new Date().toISOString().split('T')[0];
       document.getElementById('preferredDate').min = todayStr;
 
+      // Load service catalog
       fetch(`${WORKER_BASE}/api/getPortalData`)
         .then(res => res.json())
         .then(data => {
@@ -305,32 +332,32 @@
           initServiceCatalog(portalData.services || []);
         });
 
+      // Check existing Shop Terminal session in sessionStorage
+      const savedShopSession = sessionStorage.getItem('lchs_shop_session');
+      if (savedShopSession) {
+        shopAuthSession = JSON.parse(savedShopSession);
+        activateShopTerminalView(shopAuthSession);
+        return;
+      }
+
+      // Otherwise check existing Client Google OAuth session
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
-        await handleAuthenticatedUser(session);
+        await handleAuthenticatedClient(session);
       }
 
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-        if (session) {
-          await handleAuthenticatedUser(session);
+        if (session && !shopAuthSession) {
+          await handleAuthenticatedClient(session);
         }
       });
     };
 
-    function showAuthMode(mode) {
+    // --- PORTAL SELECTION GATES ---
+    function showClientGoogleGate() {
       document.getElementById('authGateCard').classList.add('d-none');
+      document.getElementById('shopSigninCard').classList.add('d-none');
       document.getElementById('googleSigninCard').classList.remove('d-none');
-      
-      const title = document.getElementById('signinCardTitle');
-      const desc = document.getElementById('signinCardDesc');
-      
-      if (mode === 'client') {
-        title.textContent = "Client Portal Sign-In";
-        desc.textContent = "Authenticate with your Google account to book service and view your vehicle history.";
-      } else {
-        title.textContent = "Shop Terminal Sign-In";
-        desc.textContent = "Authenticate with your authorized LCHS student or instructor Google account.";
-      }
 
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
@@ -344,11 +371,79 @@
       );
     }
 
+    function showShopTerminalGate() {
+      document.getElementById('authGateCard').classList.add('d-none');
+      document.getElementById('googleSigninCard').classList.add('d-none');
+      document.getElementById('shopSigninCard').classList.remove('d-none');
+    }
+
     function resetToHomeGate() {
       document.getElementById('googleSigninCard').classList.add('d-none');
+      document.getElementById('shopSigninCard').classList.add('d-none');
       document.getElementById('authGateCard').classList.remove('d-none');
     }
 
+    // --- SHOP FLOOR LOGIN (EMAIL + DESK/STATION NUMBER) ---
+    async function handleShopTerminalLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('shopLoginEmail').value.trim();
+      const station = document.getElementById('shopLoginStation').value.trim();
+      const errBox = document.getElementById('shopLoginError');
+      const btn = document.getElementById('btnShopLogin');
+
+      errBox.classList.add('d-none');
+      btn.disabled = true;
+      btn.textContent = "Verifying Credentials...";
+
+      try {
+        const res = await fetch(`${WORKER_BASE}/api/verifyShopLogin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, station })
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          errBox.textContent = data.error || "Invalid email or Desk/Station number.";
+          errBox.classList.remove('d-none');
+          btn.disabled = false;
+          btn.textContent = "Access Shop Terminal";
+          return;
+        }
+
+        shopAuthSession = {
+          email: data.email || email,
+          station: station,
+          role: (data.role || 'student').toLowerCase(),
+          name: data.name || email,
+          token: data.token || ''
+        };
+        sessionStorage.setItem('lchs_shop_session', JSON.stringify(shopAuthSession));
+        activateShopTerminalView(shopAuthSession);
+      } catch (err) {
+        errBox.textContent = "Network error reaching shop server.";
+        errBox.classList.remove('d-none');
+        btn.disabled = false;
+        btn.textContent = "Access Shop Terminal";
+      }
+    }
+
+    function activateShopTerminalView(shopUser) {
+      currentUserRole = shopUser.role;
+      document.getElementById('authGateCard').classList.add('d-none');
+      document.getElementById('shopSigninCard').classList.add('d-none');
+      document.getElementById('googleSigninCard').classList.add('d-none');
+      document.getElementById('viewClientDashboard').classList.add('d-none');
+      document.getElementById('btnSignOut').classList.remove('d-none');
+
+      const isInstructor = (currentUserRole === 'teacher' || currentUserRole === 'instructor');
+      document.getElementById('viewShopTerminal').classList.remove('d-none');
+      document.getElementById('terminalHeading').textContent = isInstructor ? 'Instructor Management Console' : 'Student Shop Floor Terminal';
+      document.getElementById('terminalRoleBadge').textContent = `Signed in as ${shopUser.name} (${currentUserRole.toUpperCase()}) • Station ${shopUser.station}`;
+      loadShopJobs();
+    }
+
+    // --- CLIENT GOOGLE OAUTH LOGIN ---
     async function handleGoogleCredentialResponse(response) {
       const { data, error } = await supabaseClient.auth.signInWithIdToken({
         provider: 'google',
@@ -356,46 +451,52 @@
       });
 
       if (error) {
-        alert("Authentication error: " + error.message);
+        alert("Google Authentication error: " + error.message);
       } else if (data.session) {
-        await handleAuthenticatedUser(data.session);
+        await handleAuthenticatedClient(data.session);
       }
     }
 
-    async function signOutGoogle() {
+    async function handleAuthenticatedClient(session) {
+      currentSession = session;
+      currentUserRole = 'client';
+      const user = session.user;
+      const displayName = user.user_metadata?.full_name || user.email;
+
+      document.getElementById('authGateCard').classList.add('d-none');
+      document.getElementById('googleSigninCard').classList.add('d-none');
+      document.getElementById('shopSigninCard').classList.add('d-none');
+      document.getElementById('viewShopTerminal').classList.add('d-none');
+      document.getElementById('btnSignOut').classList.remove('d-none');
+
+      document.getElementById('viewClientDashboard').classList.remove('d-none');
+      document.getElementById('clientDashboardName').textContent = `Welcome, ${displayName}`;
+      document.getElementById('clientDashboardEmail').textContent = user.email;
+      loadClientHistory();
+    }
+
+    async function signOutAll() {
+      sessionStorage.removeItem('lchs_shop_session');
+      shopAuthSession = null;
       await supabaseClient.auth.signOut();
       window.location.reload();
     }
 
-    async function handleAuthenticatedUser(session) {
-      currentSession = session;
-      const user = session.user;
-      document.getElementById('authGateCard').classList.add('d-none');
-      document.getElementById('googleSigninCard').classList.add('d-none');
-      document.getElementById('btnSignOut').classList.remove('d-none');
-
-      const { data: roleRecord } = await supabaseClient
-        .from('User_Roles')
-        .select('role, full_name')
-        .eq('user_id', user.id)
-        .single();
-
-      currentUserRole = roleRecord ? roleRecord.role : 'client';
-      const displayName = (roleRecord && roleRecord.full_name) || user.user_metadata?.full_name || user.email;
-
-      if (currentUserRole === 'teacher' || currentUserRole === 'student') {
-        document.getElementById('viewShopTerminal').classList.remove('d-none');
-        document.getElementById('terminalHeading').textContent = currentUserRole === 'teacher' ? 'Instructor Management Console' : 'Student Shop Floor Terminal';
-        document.getElementById('terminalRoleBadge').textContent = `Signed in as ${displayName} (${currentUserRole.toUpperCase()})`;
-        loadShopJobs();
-      } else {
-        document.getElementById('viewClientDashboard').classList.remove('d-none');
-        document.getElementById('clientDashboardName').textContent = `Welcome, ${displayName}`;
-        document.getElementById('clientDashboardEmail').textContent = user.email;
-        loadClientHistory();
+    // --- HELPER FOR AUTH HEADERS ---
+    function getAuthHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (shopAuthSession) {
+        if (shopAuthSession.token) headers['Authorization'] = `Bearer ${shopAuthSession.token}`;
+        headers['X-Shop-Email'] = shopAuthSession.email;
+        headers['X-Shop-Station'] = shopAuthSession.station;
+        headers['X-Shop-Role'] = shopAuthSession.role;
+      } else if (currentSession) {
+        headers['Authorization'] = `Bearer ${currentSession.access_token}`;
       }
+      return headers;
     }
 
+    // --- SERVICE CATALOG & CLIENT FORM ---
     function initServiceCatalog(services) {
       let container = document.getElementById('serviceCardsContainer');
       container.innerHTML = '';
@@ -473,7 +574,7 @@
 
     function loadClientHistory() {
       fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
-        headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
+        headers: getAuthHeaders()
       })
       .then(res => res.json())
       .then(jobs => {
@@ -494,16 +595,17 @@
       });
     }
 
+    // --- SHOP TERMINAL JOBS & EDITOR ---
     function loadShopJobs() {
       fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
-        headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
+        headers: getAuthHeaders()
       })
       .then(res => res.json())
       .then(jobs => {
         shopJobs = Array.isArray(jobs) ? jobs : [];
         const container = document.getElementById('shopJobList');
         if (shopJobs.length === 0) {
-          container.innerHTML = `<div class="col-12"><div class="alert alert-info">No work orders assigned to your account.</div></div>`;
+          container.innerHTML = `<div class="col-12"><div class="alert alert-info">No work orders found for your station.</div></div>`;
           return;
         }
         container.innerHTML = shopJobs.map((j, idx) => `
@@ -545,10 +647,10 @@
       document.getElementById('editNotes').value = j.notes || '';
       document.getElementById('calcShopFee').value = j.shopFee ?? 10.00;
 
-      const isTeacher = currentUserRole === 'teacher';
-      document.getElementById('instructorControlsRow').style.display = isTeacher ? 'flex' : 'none';
-      document.getElementById('studentNoticeBanner').classList.toggle('d-none', isTeacher);
-      document.getElementById('saveOrderBtn').textContent = isTeacher ? 'Approve & Save Changes' : 'Submit Changes to Instructor';
+      const isInstructor = (currentUserRole === 'teacher' || currentUserRole === 'instructor');
+      document.getElementById('instructorControlsRow').style.display = isInstructor ? 'flex' : 'none';
+      document.getElementById('studentNoticeBanner').classList.toggle('d-none', isInstructor);
+      document.getElementById('saveOrderBtn').textContent = isInstructor ? 'Approve & Save Changes' : 'Submit Changes to Instructor';
 
       const body = document.getElementById('lineItemsTableBody');
       body.innerHTML = '';
@@ -612,8 +714,8 @@
         });
       });
 
-      const isTeacher = currentUserRole === 'teacher';
-      const action = isTeacher ? document.getElementById('editDecisionAction').value : 'STUDENT_SUBMIT';
+      const isInstructor = (currentUserRole === 'teacher' || currentUserRole === 'instructor');
+      const action = isInstructor ? document.getElementById('editDecisionAction').value : 'STUDENT_SUBMIT';
 
       const payload = {
         orderId: document.getElementById('editOrderId').value,
@@ -629,10 +731,7 @@
 
       fetch(`${WORKER_BASE}/api/processTeacherDecision`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSession.access_token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       })
       .then(res => res.json())
@@ -701,10 +800,7 @@
 
       fetch(`${WORKER_BASE}/api/submitWorkOrder`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSession.access_token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(formData)
       })
       .then(res => res.json())
