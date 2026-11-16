@@ -3,8 +3,10 @@
 <head>
   <base target="_top">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Supabase JS SDK for Google OAuth -->
-  <script src="sb_publishable_t9pJSkenb6NAle2ox4iHtA_LcHpVtOT"></script>
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     body { background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     .top-nav { background: linear-gradient(135deg, #0f172a 0%, #161f31 100%); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 10px 10px; margin-bottom: 25px; }
@@ -36,22 +38,35 @@
 
   <div class="container mb-5 pt-2" style="max-width: 950px;">
 
-    <!-- UNIFIED SUPABASE GOOGLE AUTH SCREEN -->
+    <!-- UNIFIED HOME GATE (CHOOSE PORTAL OR GOOGLE SIGN-IN) -->
     <div id="authGateCard" class="card p-5 auth-card text-center">
       <h3 class="text-dark mb-2">LCHS Mechanics Portal</h3>
-      <p class="text-muted small mb-4">Sign in with your Google account to book service requests, check vehicle history, or access the shop floor terminal.</p>
+      <p class="text-muted small mb-4">Select your portal below and sign in securely with Google Workspace.</p>
       
       <div class="d-grid gap-3">
-        <button class="btn btn-dark btn-lg" onclick="signInWithGoogle('client')">
-          Sign in with Google (Client Portal)
+        <button class="btn btn-dark btn-lg py-3" onclick="showAuthMode('client')">
+          Client Portal (Book Service & View History)
         </button>
-        <button class="btn btn-outline-dark" onclick="signInWithGoogle('shop')">
-          Sign in with Google (Student / Instructor Terminal)
+        <button class="btn btn-outline-dark btn-lg py-3" onclick="showAuthMode('shop')">
+          Shop Floor Terminal (Student / Instructor)
         </button>
       </div>
     </div>
 
-    <!-- CLIENT PORTAL VIEW (Defaults to New Service Request tab) -->
+    <!-- SPECIFIC GOOGLE SIGN-IN GATE CARD -->
+    <div id="googleSigninCard" class="card p-5 auth-card text-center d-none">
+      <h3 id="signinCardTitle" class="text-dark mb-2">Sign In</h3>
+      <p id="signinCardDesc" class="text-muted small mb-4">Click below to authenticate with your LCHS or Google account.</p>
+      
+      <!-- Official Google Sign-In Render Container -->
+      <div class="d-flex justify-content-center mb-3">
+        <div id="googleButtonContainer"></div>
+      </div>
+
+      <button class="btn btn-link text-muted btn-sm mt-3" onclick="resetToHomeGate()">&larr; Back to Portal Selection</button>
+    </div>
+
+    <!-- CLIENT PORTAL VIEW -->
     <div id="viewClientDashboard" class="card p-4 d-none">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
@@ -60,7 +75,6 @@
         </div>
       </div>
 
-      <!-- Tab Order: New Service Request FIRST (Default), Vehicle & Service History to the RIGHT -->
       <ul class="nav nav-tabs mb-4" id="clientTabs">
         <li class="nav-item">
           <a class="nav-link active" id="tabLinkBooking" href="#" onclick="switchClientTab('booking')">+ New Service Request</a>
@@ -70,7 +84,7 @@
         </li>
       </ul>
 
-      <!-- TAB 1 (DEFAULT): WORK ORDER REQUEST FORM -->
+      <!-- TAB 1: BOOKING FORM -->
       <div id="clientTabBooking">
         <form id="workOrderForm" onsubmit="handleFormSubmit(event)">
           
@@ -159,14 +173,14 @@
         </div>
       </div>
 
-      <!-- TAB 2 (RIGHT): VEHICLE & SERVICE HISTORY -->
+      <!-- TAB 2: HISTORY -->
       <div id="clientTabHistory" class="d-none">
         <h5 class="mb-3">Your Vehicles & Past Work Performed</h5>
         <div id="clientHistoryList"><p class="text-muted">Loading your service records...</p></div>
       </div>
     </div>
 
-    <!-- SHOP TERMINAL VIEW (STUDENT & INSTRUCTOR UNIFIED) -->
+    <!-- SHOP TERMINAL VIEW (STUDENT & INSTRUCTOR) -->
     <div id="viewShopTerminal" class="d-none">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -180,7 +194,7 @@
 
   </div>
 
-  <!-- EDITABLE WORK ORDER MODAL (GST ON PARTS ONLY) -->
+  <!-- EDITABLE WORK ORDER MODAL -->
   <div class="modal fade" id="editorModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
       <div class="modal-content">
@@ -194,7 +208,7 @@
           <input type="hidden" id="editCustomerName">
 
           <div id="studentNoticeBanner" class="alert alert-warning d-none">
-            <strong>Student Mode:</strong> Any parts, labor, or fee edits you submit will be flagged as <em>Requires Attention</em> for instructor review before finalizing.
+            <strong>Student Mode:</strong> Parts, labor, or fee edits you submit will be flagged as <em>Requires Attention</em> for instructor review.
           </div>
 
           <div class="row g-3 mb-4" id="instructorControlsRow">
@@ -213,7 +227,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Assigned Student Email (For RLS Access)</label>
-              <input type="email" id="editStudentAssignedEmail" class="form-control" placeholder="student@lchs.ca">
+              <input type="email" id="editStudentAssignedEmail" class="form-control" placeholder="student@example.com">
             </div>
           </div>
 
@@ -268,10 +282,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // REPLACE WITH YOUR SUPABASE PROJECT URL & ANON KEY
-    const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-    const WORKER_BASE = 'https://form-handler.oehlerking-w.workers.dev';
+    const SUPABASE_URL = 'https://vggwsbaycxvbtcomakuw.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_t9pJSkenb6NAle2ox4iHtA_LcHpVtOT';
+    const WORKER_BASE = 'https://form-handler.oehlerking-w.workers.dev/';
+    const GOOGLE_CLIENT_ID = '964838190225-qocdtctuvhddogvp5lk5nv162heeehbp.apps.googleusercontent.com';
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -284,7 +298,6 @@
       const todayStr = new Date().toISOString().split('T')[0];
       document.getElementById('preferredDate').min = todayStr;
 
-      // Load service packages with Base_Price from Supabase via Worker
       fetch(`${WORKER_BASE}/api/getPortalData`)
         .then(res => res.json())
         .then(data => {
@@ -292,7 +305,6 @@
           initServiceCatalog(portalData.services || []);
         });
 
-      // Check existing Supabase Google OAuth session
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         await handleAuthenticatedUser(session);
@@ -305,12 +317,49 @@
       });
     };
 
-    async function signInWithGoogle(intendedPortal) {
-      localStorage.setItem('lchs_intended_portal', intendedPortal);
-      await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin + window.location.pathname }
+    function showAuthMode(mode) {
+      document.getElementById('authGateCard').classList.add('d-none');
+      document.getElementById('googleSigninCard').classList.remove('d-none');
+      
+      const title = document.getElementById('signinCardTitle');
+      const desc = document.getElementById('signinCardDesc');
+      
+      if (mode === 'client') {
+        title.textContent = "Client Portal Sign-In";
+        desc.textContent = "Authenticate with your Google account to book service and view your vehicle history.";
+      } else {
+        title.textContent = "Shop Terminal Sign-In";
+        desc.textContent = "Authenticate with your authorized LCHS student or instructor Google account.";
+      }
+
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredentialResponse
       });
+      
+      document.getElementById('googleButtonContainer').innerHTML = '';
+      google.accounts.id.renderButton(
+        document.getElementById('googleButtonContainer'),
+        { theme: 'outline', size: 'large', width: 350 }
+      );
+    }
+
+    function resetToHomeGate() {
+      document.getElementById('googleSigninCard').classList.add('d-none');
+      document.getElementById('authGateCard').classList.remove('d-none');
+    }
+
+    async function handleGoogleCredentialResponse(response) {
+      const { data, error } = await supabaseClient.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential,
+      });
+
+      if (error) {
+        alert("Authentication error: " + error.message);
+      } else if (data.session) {
+        await handleAuthenticatedUser(data.session);
+      }
     }
 
     async function signOutGoogle() {
@@ -322,9 +371,9 @@
       currentSession = session;
       const user = session.user;
       document.getElementById('authGateCard').classList.add('d-none');
+      document.getElementById('googleSigninCard').classList.add('d-none');
       document.getElementById('btnSignOut').classList.remove('d-none');
 
-      // Fetch user's assigned role from public.User_Roles
       const { data: roleRecord } = await supabaseClient
         .from('User_Roles')
         .select('role, full_name')
@@ -347,7 +396,6 @@
       }
     }
 
-    // Pulls real Base_Price from Services_Catalog
     function initServiceCatalog(services) {
       let container = document.getElementById('serviceCardsContainer');
       container.innerHTML = '';
@@ -387,7 +435,6 @@
       calculateClientEstimate();
     }
 
-    // GST is calculated ONLY on Parts + Shop Supplies (NOT Labor/Services)
     function calculateClientEstimate() {
       let laborTotal = 0;
       let count = 0;
@@ -400,7 +447,6 @@
 
       let shopFee = count > 0 ? (portalData.settings.shopFee ?? 10.00) : 0;
       let subtotal = laborTotal + shopFee;
-      // 5% GST applies only to shop supplies/parts, NOT labor
       let gst = shopFee * (portalData.settings.gstRate || 0.05);
       let total = subtotal + gst;
 
@@ -412,13 +458,14 @@
     }
 
     function switchClientTab(tab) {
-      document.querySelectorAll('#clientTabs .nav-link').forEach(el => el.classList.remove('active'));
       if (tab === 'booking') {
         document.getElementById('tabLinkBooking').classList.add('active');
+        document.getElementById('tabLinkHistory').classList.remove('active');
         document.getElementById('clientTabBooking').classList.remove('d-none');
         document.getElementById('clientTabHistory').classList.add('d-none');
       } else {
         document.getElementById('tabLinkHistory').classList.add('active');
+        document.getElementById('tabLinkBooking').classList.remove('active');
         document.getElementById('clientTabHistory').classList.remove('d-none');
         document.getElementById('clientTabBooking').classList.add('d-none');
       }
@@ -480,11 +527,11 @@
     function getBadgeClass(status) {
       if (!status) return 'bg-warning text-dark';
       const s = status.toLowerCase();
-      if (s.includes('complete')) return 'bg-secondary'; // Grey
-      if (s.includes('approve') || s.includes('progress')) return 'bg-success'; // Green
-      if (s.includes('counter') || s.includes('reschedule')) return 'badge-orange'; // Orange
-      if (s.includes('decline') || s.includes('reject')) return 'bg-danger'; // Red
-      return 'bg-warning text-dark'; // Yellow (Requires Attention / New / Student Update)
+      if (s.includes('complete')) return 'bg-secondary';
+      if (s.includes('approve') || s.includes('progress')) return 'bg-success';
+      if (s.includes('counter') || s.includes('reschedule')) return 'badge-orange';
+      if (s.includes('decline') || s.includes('reject')) return 'bg-danger';
+      return 'bg-warning text-dark';
     }
 
     function openEditorModal(idx) {
@@ -635,13 +682,14 @@
         customerName: user.user_metadata?.full_name || user.email.split('@')[0],
         customerEmail: user.email,
         customerPhone: document.getElementById('customerPhone').value,
+        customerAddress: document.getElementById('customerAddress').value,
+        customerPostal: document.getElementById('customerPostal').value,
         vehicleYear: document.getElementById('vehicleYear').value,
         vehicleMake: document.getElementById('vehicleMake').value,
         vehicleModel: document.getElementById('vehicleModel').value,
         odometer: document.getElementById('vehicleOdometer').value,
         vin: document.getElementById('vinInput').value,
         serviceSelected: lineItems.map(i => i.name).join(', '),
-        customDescription: document.getElementById('customDescription').value,
         preferredDate: document.getElementById('preferredDate').value,
         shopFee: portalData.settings.shopFee ?? 10.00,
         lineItems: lineItems
