@@ -3,28 +3,22 @@
 <head>
   <base target="_top">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Supabase JS SDK for Google OAuth -->
+  <script src="sb_publishable_t9pJSkenb6NAle2ox4iHtA_LcHpVtOT"></script>
   <style>
-    :root { --forest-green: #064e3b; --emerald-accent: #059669; }
     body { background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .top-nav { background: linear-gradient(135deg, var(--forest-green) 0%, #022c22 100%); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 10px 10px; margin-bottom: 25px; }
+    .top-nav { background: linear-gradient(135deg, #0f172a 0%, #161f31 100%); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 10px 10px; margin-bottom: 25px; }
     .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     .step-section { display: none; }
     .step-section.active { display: block; }
-    .step-header { font-weight: 600; color: var(--forest-green); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
-    .app-view { display: none; }
-    .app-view.active { display: block; }
-    .auth-card { max-width: 450px; margin: 40px auto; }
-    .service-card { border: 2px solid #e2e8f0; border-radius: 10px; padding: 15px; cursor: pointer; transition: all 0.2s ease; background: white; height: 100%; }
-    .service-card:hover { border-color: var(--emerald-accent); box-shadow: 0 4px 10px rgba(5, 150, 105, 0.1); }
-    .service-card.selected { border-color: var(--emerald-accent); background-color: #ecfdf5; }
-    .vin-autofilled { color: var(--emerald-accent) !important; font-weight: 600; border-color: var(--emerald-accent) !important; }
+    .step-header { font-weight: 600; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+    .auth-card { max-width: 480px; margin: 50px auto; }
     
-    @media print {
-      .top-nav, .btn, nav, .modal-footer { display: none !important; }
-      body { background: white; }
-      .card { box-shadow: none; border: 1px solid #ddd; }
-    }
+    .service-card { border: 2px solid #e2e8f0; border-radius: 10px; padding: 15px; cursor: pointer; transition: all 0.2s ease; background: white; height: 100%; }
+    .service-card:hover { border-color: #0f172a; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1); }
+    .service-card.selected { border-color: #0f172a; background-color: #f8fafc; }
+    .vin-autofilled { color: #16a34a !important; font-weight: 600; border-color: #16a34a !important; }
+    .badge-orange { background-color: #f97316 !important; color: white !important; }
   </style>
 </head>
 <body>
@@ -36,185 +30,237 @@
       <small class="opacity-75">Lacombe Composite High School CTE Program</small>
     </div>
     <div id="navButtons" class="d-flex align-items-center gap-2">
-      <button class="btn btn-outline-light btn-sm" onclick="showView('client')">Client Portal</button>
-      <button class="btn btn-outline-light btn-sm" onclick="showLogin('student')">Student Terminal</button>
-      <button class="btn btn-light btn-sm" onclick="showLogin('teacher')">Instructor Console</button>
+      <button id="btnSignOut" class="btn btn-outline-light btn-sm d-none" onclick="signOutGoogle()">Sign Out</button>
     </div>
   </div>
 
   <div class="container mb-5 pt-2" style="max-width: 950px;">
 
-    <!-- VIEW 1: CLIENT SERVICE INTAKE -->
-    <div id="viewClient" class="app-view active">
-      <div class="card p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="text-success mb-0">Client Service Booking</h3>
-          <div id="clientAccountBadge" class="small text-muted"></div>
+    <!-- UNIFIED SUPABASE GOOGLE AUTH SCREEN -->
+    <div id="authGateCard" class="card p-5 auth-card text-center">
+      <h3 class="text-dark mb-2">LCHS Mechanics Portal</h3>
+      <p class="text-muted small mb-4">Sign in with your Google account to book service requests, check vehicle history, or access the shop floor terminal.</p>
+      
+      <div class="d-grid gap-3">
+        <button class="btn btn-dark btn-lg" onclick="signInWithGoogle('client')">
+          Sign in with Google (Client Portal)
+        </button>
+        <button class="btn btn-outline-dark" onclick="signInWithGoogle('shop')">
+          Sign in with Google (Student / Instructor Terminal)
+        </button>
+      </div>
+    </div>
+
+    <!-- CLIENT PORTAL VIEW (Defaults to New Service Request tab) -->
+    <div id="viewClientDashboard" class="card p-4 d-none">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h4 id="clientDashboardName" class="text-dark mb-0">Client Portal</h4>
+          <small id="clientDashboardEmail" class="text-muted"></small>
         </div>
+      </div>
+
+      <!-- Tab Order: New Service Request FIRST (Default), Vehicle & Service History to the RIGHT -->
+      <ul class="nav nav-tabs mb-4" id="clientTabs">
+        <li class="nav-item">
+          <a class="nav-link active" id="tabLinkBooking" href="#" onclick="switchClientTab('booking')">+ New Service Request</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="tabLinkHistory" href="#" onclick="switchClientTab('history')">Vehicle & Service History</a>
+        </li>
+      </ul>
+
+      <!-- TAB 1 (DEFAULT): WORK ORDER REQUEST FORM -->
+      <div id="clientTabBooking">
         <form id="workOrderForm" onsubmit="handleFormSubmit(event)">
           
-          <!-- STEP 1 -->
           <div id="section-1" class="step-section active">
-            <div class="step-header">Step 1 of 3: Vehicle & Customer Information</div>
+            <div class="step-header">Step 1 of 3: Vehicle & Contact Information</div>
             
             <div class="mb-4">
-              <label class="form-label font-weight-bold text-dark">Search Vehicle by VIN or Manual Entry</label>
+              <label class="form-label font-weight-bold text-dark">Enter 17-Digit VIN (Auto-decodes)</label>
               <div class="input-group">
-                <input type="text" id="vinInput" class="form-control client-input" placeholder="Enter 17-digit VIN..." maxlength="17">
-                <button class="btn btn-success" type="button" onclick="decodeVehicleVIN()">Lookup VIN</button>
+                <input type="text" id="vinInput" class="form-control" placeholder="17-digit VIN..." maxlength="17" oninput="handleVinTyping(this.value)">
+                <button class="btn btn-dark" type="button" onclick="decodeVehicleVIN()">Lookup VIN</button>
               </div>
             </div>
 
             <div class="row g-3 mb-4">
-              <div class="col-md-3"><label class="form-label">Year *</label><input type="number" id="vehicleYear" class="form-control client-input" required></div>
-              <div class="col-md-4"><label class="form-label">Make *</label><input type="text" id="vehicleMake" class="form-control client-input" required></div>
-              <div class="col-md-5"><label class="form-label">Model *</label><input type="text" id="vehicleModel" class="form-control client-input" required></div>
-              <div class="col-md-6"><label class="form-label">Odometer (km) *</label><input type="number" id="vehicleOdometer" class="form-control client-input" placeholder="e.g., 85000" required></div>
-              <div class="col-md-6">
-                <label class="form-label">Client Group *</label>
-                <select id="customerType" class="form-select client-input" required>
-                  <option value="Public" selected>Member of Public</option>
-                  <option value="School Staff">School Staff / Teacher</option>
-                  <option value="Student">High School Student</option>
-                </select>
-              </div>
-              <div class="col-md-4"><label class="form-label">First Name *</label><input type="text" id="customerFirstName" class="form-control client-input" required></div>
-              <div class="col-md-4"><label class="form-label">Last Name *</label><input type="text" id="customerLastName" class="form-control client-input" required></div>
-              <div class="col-md-4"><label class="form-label">Phone *</label><input type="tel" id="customerPhone" class="form-control client-input" required></div>
-              <div class="col-md-8"><label class="form-label">Street Address *</label><input type="text" id="customerAddress" class="form-control client-input" required></div>
-              <div class="col-md-4"><label class="form-label">Postal Code *</label><input type="text" id="customerPostal" class="form-control client-input" placeholder="T4L 1A2" required></div>
-              <div class="col-md-12"><label class="form-label">Email Address *</label><input type="email" id="customerEmail" class="form-control client-input" required></div>
-            </div>
-            
-            <div class="mb-3 text-center border-top pt-3">
-              <small class="text-muted d-block mb-2">Sign in with Google to load past vehicles & service records</small>
-              <div id="g_id_onload_client"
-                   data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-                   data-callback="handleClientGoogleSignIn"
-                   data-auto_prompt="false"></div>
-              <div class="g_id_signin" data-type="standard" data-size="medium" data-width="300"></div>
+              <div class="col-md-3"><label class="form-label">Year *</label><input type="number" id="vehicleYear" class="form-control" required></div>
+              <div class="col-md-4"><label class="form-label">Make *</label><input type="text" id="vehicleMake" class="form-control" required></div>
+              <div class="col-md-5"><label class="form-label">Model *</label><input type="text" id="vehicleModel" class="form-control" required></div>
+              <div class="col-md-6"><label class="form-label">Odometer (km) *</label><input type="number" id="vehicleOdometer" class="form-control" required></div>
+              <div class="col-md-6"><label class="form-label">Phone Number *</label><input type="tel" id="customerPhone" class="form-control" required></div>
+              <div class="col-md-8"><label class="form-label">Street Address *</label><input type="text" id="customerAddress" class="form-control" required></div>
+              <div class="col-md-4"><label class="form-label">Postal Code *</label><input type="text" id="customerPostal" class="form-control" placeholder="T4L 1A2" required></div>
             </div>
 
-            <button type="button" class="btn btn-success w-100" onclick="validateStep1()">Next: Select Service Package</button>
+            <button type="button" class="btn btn-dark w-100" onclick="goToStep(2)">Next: Select Service Packages</button>
           </div>
 
-          <!-- STEP 2 -->
           <div id="section-2" class="step-section">
-            <div class="step-header">Step 2 of 3: Service Package Selection & Schedule</div>
+            <div class="step-header">Step 2 of 3: Service Packages & Schedule</div>
             
-            <label class="form-label font-weight-bold mb-3">Select Desired Service Menu *</label>
-            <input type="hidden" id="serviceSelect" class="client-input">
+            <label class="form-label font-weight-bold mb-3">Select Desired Service Packages *</label>
             <div id="serviceCardsContainer" class="row g-3 mb-4">
-              <div class="col-12 text-muted">Loading service packages...</div>
+              <div class="col-12 text-muted">Loading service packages from database...</div>
             </div>
 
             <div class="mb-3">
               <label class="form-label">Custom Description / Symptoms</label>
-              <textarea id="customDescription" class="form-control client-input" rows="3" placeholder="Describe specific noises or warning lights..."></textarea>
+              <textarea id="customDescription" class="form-control" rows="3" placeholder="Describe noises or warning lights..."></textarea>
             </div>
             
             <div class="mb-4">
               <label class="form-label">Preferred Drop-off Date *</label>
-              <input type="date" id="preferredDate" class="form-control client-input" required>
+              <input type="date" id="preferredDate" class="form-control" required>
             </div>
 
             <div class="p-3 bg-light rounded mb-4 border">
-              <div class="d-flex justify-content-between mb-1"><span>Selected Services Base:</span><span id="dispBase">$0.00</span></div>
-              <div class="d-flex justify-content-between mb-1"><span>Shop Supplies Fee:</span><span id="dispFee">$0.00</span></div>
+              <div class="d-flex justify-content-between mb-1"><span>Selected Services (Labor - GST Exempt):</span><span id="dispLabor">$0.00</span></div>
+              <div class="d-flex justify-content-between mb-1"><span>Shop Supplies Fee (Taxable):</span><span id="dispFee">$0.00</span></div>
               <div class="d-flex justify-content-between mb-1"><span>Subtotal:</span><span id="dispSub">$0.00</span></div>
-              <div class="d-flex justify-content-between mb-1"><span>Alberta GST (5%):</span><span id="dispGST">$0.00</span></div>
+              <div class="d-flex justify-content-between mb-1"><span>Alberta GST (5% on Parts/Supplies only):</span><span id="dispGST">$0.00</span></div>
               <hr class="my-2">
-              <div class="d-flex justify-content-between font-weight-bold h5 text-success"><strong>Estimated Total:</strong><strong id="displayTotal">$0.00</strong></div>
+              <div class="d-flex justify-content-between font-weight-bold h5 text-dark"><strong>Estimated Total:</strong><strong id="displayTotal">$0.00</strong></div>
             </div>
 
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-secondary w-50" onclick="goToStep(1)">Back</button>
-              <button type="button" class="btn btn-success w-50" onclick="validateStep2()">Next: Terms & Authorization</button>
+              <button type="button" class="btn btn-dark w-50" onclick="goToStep(3)">Next: Authorization</button>
             </div>
           </div>
 
-          <!-- STEP 3 -->
           <div id="section-3" class="step-section">
             <div class="step-header">Step 3 of 3: Pre-Authorization</div>
             <div class="mb-3">
               <div class="form-check">
-                <input class="form-check-input client-input" type="checkbox" id="workAuthorized" required>
+                <input class="form-check-input" type="checkbox" id="workAuthorized" required>
                 <label class="form-check-label" for="workAuthorized">
-                  I authorize LCHS Mechanics to inspect and diagnose. Formal repair work commences only after instructor estimate review and approval.
+                  I authorize LCHS Mechanics to inspect and diagnose. Formal repair work commences after instructor estimate review.
                 </label>
               </div>
             </div>
             <div class="mb-4">
               <label class="form-label">Digital Signature (Type Full Legal Name) *</label>
-              <input type="text" id="digitalSignature" class="form-control client-input" placeholder="Full Legal Name" required>
+              <input type="text" id="digitalSignature" class="form-control" placeholder="Full Legal Name" required>
             </div>
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-secondary w-50" onclick="goToStep(2)">Back</button>
-              <button type="submit" id="submitBtn" class="btn btn-success w-50">Submit Service Request</button>
+              <button type="submit" id="submitBtn" class="btn btn-dark w-50">Submit Service Request</button>
             </div>
           </div>
         </form>
 
         <div id="successMessage" class="text-center py-5 d-none">
-          <h3 class="text-success">Work Order Request Submitted</h3>
+          <h3 class="text-dark">Work Order Request Submitted</h3>
           <p class="lead">Assigned Invoice Number: <strong id="outOrderId" class="text-primary"></strong></p>
-          <button class="btn btn-outline-success mt-3" onclick="clearClientStorage(); window.location.reload();">Submit Another Request</button>
+          <button class="btn btn-outline-dark mt-3" onclick="window.location.reload()">Submit Another Request</button>
         </div>
+      </div>
+
+      <!-- TAB 2 (RIGHT): VEHICLE & SERVICE HISTORY -->
+      <div id="clientTabHistory" class="d-none">
+        <h5 class="mb-3">Your Vehicles & Past Work Performed</h5>
+        <div id="clientHistoryList"><p class="text-muted">Loading your service records...</p></div>
       </div>
     </div>
 
-    <!-- VIEW 2: LOGIN -->
-    <div id="viewLogin" class="app-view">
-      <div class="card p-4 auth-card">
-        <h4 id="loginTitle" class="mb-3 text-success">Console Login</h4>
-        <div id="loginError" class="alert alert-danger d-none py-2 small"></div>
-        <input type="hidden" id="loginRole" value="teacher">
-        
-        <div class="mb-3">
-          <label class="form-label">Registered Email Address *</label>
-          <input type="email" id="loginEmail" class="form-control" placeholder="e.g. name@lchs.ca" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Desk / Station Number *</label>
-          <input type="text" id="loginDesk" class="form-control" placeholder="e.g. 101" required>
-        </div>
-        <button type="button" id="loginSubmitBtn" class="btn btn-success w-100 mb-3" onclick="performLogin()">Authenticate Credentials</button>
-      </div>
-    </div>
-
-    <!-- VIEW 3: TEACHER -->
-    <div id="viewTeacher" class="app-view">
+    <!-- SHOP TERMINAL VIEW (STUDENT & INSTRUCTOR UNIFIED) -->
+    <div id="viewShopTerminal" class="d-none">
       <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Instructor Management Console</h2>
-        <button class="btn btn-outline-success btn-sm" onclick="loadTeacherJobs()">Refresh Orders</button>
+        <div>
+          <h2 id="terminalHeading" class="mb-0">Shop Terminal</h2>
+          <small id="terminalRoleBadge" class="text-muted"></small>
+        </div>
+        <button class="btn btn-outline-dark btn-sm" onclick="loadShopJobs()">Refresh Orders</button>
       </div>
-      <div id="teacherJobList" class="row g-3"><p class="text-muted">Loading active work orders...</p></div>
-    </div>
-
-    <!-- VIEW 4: STUDENT -->
-    <div id="viewStudent" class="app-view">
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Student Shop Floor Terminal (10-Step Diagnostics)</h2>
-        <button class="btn btn-outline-success btn-sm" onclick="loadStudentJobs()">Refresh Terminal</button>
-      </div>
-      <div id="studentJobList" class="row g-3"><p class="text-muted">Loading assigned shop vehicles...</p></div>
+      <div id="shopJobList" class="row g-3"><p class="text-muted">Loading work orders...</p></div>
     </div>
 
   </div>
 
-  <!-- 10-STEP DIAGNOSTIC MODAL -->
-  <div class="modal fade" id="diagnosticModal" tabindex="-1">
+  <!-- EDITABLE WORK ORDER MODAL (GST ON PARTS ONLY) -->
+  <div class="modal fade" id="editorModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
       <div class="modal-content">
-        <div class="modal-header bg-success text-white">
-          <h5 class="modal-title">LCHS Diagnostics & Work Order Form</h5>
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title" id="editorModalTitle">Work Order Editor</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body" id="diagnosticFormBody"></div>
+        <div class="modal-body">
+          <input type="hidden" id="editOrderId">
+          <input type="hidden" id="editCustomerEmail">
+          <input type="hidden" id="editCustomerName">
+
+          <div id="studentNoticeBanner" class="alert alert-warning d-none">
+            <strong>Student Mode:</strong> Any parts, labor, or fee edits you submit will be flagged as <em>Requires Attention</em> for instructor review before finalizing.
+          </div>
+
+          <div class="row g-3 mb-4" id="instructorControlsRow">
+            <div class="col-md-4">
+              <label class="form-label">Instructor Decision *</label>
+              <select id="editDecisionAction" class="form-select">
+                <option value="ACCEPT">✓ Approve Work Order / Edits</option>
+                <option value="COUNTER">– Counter Proposal / Reschedule</option>
+                <option value="REJECT">✕ Decline Request</option>
+                <option value="COMPLETE">★ Mark Work Completed & Bill Admin</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Assigned Student Name</label>
+              <input type="text" id="editStudentAssigned" class="form-control" placeholder="e.g. Purva Patel">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Assigned Student Email (For RLS Access)</label>
+              <input type="email" id="editStudentAssignedEmail" class="form-control" placeholder="student@lchs.ca">
+            </div>
+          </div>
+
+          <h6>Itemized Services, Parts & Labor</h6>
+          <table class="table table-bordered mb-2">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 180px;">Type (Tax Rule)</th>
+                <th>Description / Part Name</th>
+                <th style="width: 140px;">Price ($)</th>
+                <th style="width: 60px;">Remove</th>
+              </tr>
+            </thead>
+            <tbody id="lineItemsTableBody"></tbody>
+          </table>
+
+          <div class="d-flex gap-2 mb-4">
+            <button type="button" class="btn btn-sm btn-outline-dark" onclick="addInvoiceLineItem('Part', 'Replacement Part', 0)">+ Add Part (5% GST)</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addInvoiceLineItem('Labor', 'Shop Labor / Service', 0)">+ Add Labor (No GST)</button>
+          </div>
+
+          <div class="row border-top pt-3">
+            <div class="col-md-6">
+              <label class="form-label">Technician / Instructor Notes</label>
+              <textarea id="editNotes" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="col-md-6">
+              <div class="bg-light p-3 rounded border">
+                <div class="d-flex justify-content-between mb-1"><span>Labor / Services (GST Exempt):</span><strong id="calcLaborSub">$0.00</strong></div>
+                <div class="d-flex justify-content-between mb-1"><span>Parts Subtotal (Taxable):</span><strong id="calcPartsSub">$0.00</strong></div>
+                <div class="d-flex justify-content-between mb-2 align-items-center">
+                  <span>Shop Supplies Fee (Taxable $):</span>
+                  <input type="number" id="calcShopFee" class="form-control form-control-sm text-end" style="width: 100px;" value="10.00" oninput="recalculateInvoiceTotals()">
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                  <span>GST (5% on Parts + Supplies only):</span>
+                  <strong id="calcGst">$0.00</strong>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between h5 text-dark mb-0"><strong>Total Amount Due:</strong><strong id="calcTotal">$0.00</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-outline-secondary" onclick="window.print()">Print / Export PDF</button>
-          <button type="button" class="btn btn-success" onclick="saveDiagnosticForm()">Save Diagnostic Record</button>
+          <button type="button" class="btn btn-dark" id="saveOrderBtn" onclick="saveAndDispatchOrder()">Save & Submit</button>
         </div>
       </div>
     </div>
@@ -222,330 +268,402 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // REPLACE WITH YOUR SUPABASE PROJECT URL & ANON KEY
+    const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
     const WORKER_BASE = 'https://form-handler.oehlerking-w.workers.dev';
-    let portalData = { services: [], settings: { gstRate: 0.05, shopFee: 10.0 } };
-    let teacherJobs = [];
-    let studentJobs = [];
-    let activeJob = null;
-    let currentUser = null;
 
-    window.onload = function() {
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentSession = null;
+    let currentUserRole = 'client';
+    let portalData = { services: [], settings: { gstRate: 0.05, shopFee: 10.00 } };
+    let shopJobs = [];
+
+    window.onload = async function() {
       const todayStr = new Date().toISOString().split('T')[0];
       document.getElementById('preferredDate').min = todayStr;
-      restoreClientState();
 
+      // Load service packages with Base_Price from Supabase via Worker
       fetch(`${WORKER_BASE}/api/getPortalData`)
         .then(res => res.json())
-        .then(data => initPortal(data))
-        .catch(err => console.error("Backend connection error."));
+        .then(data => {
+          portalData = data || portalData;
+          initServiceCatalog(portalData.services || []);
+        });
 
-      document.querySelectorAll('.client-input').forEach(el => {
-        el.addEventListener('input', saveClientState);
-        el.addEventListener('change', saveClientState);
+      // Check existing Supabase Google OAuth session
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        await handleAuthenticatedUser(session);
+      }
+
+      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+        if (session) {
+          await handleAuthenticatedUser(session);
+        }
       });
     };
 
-    function initPortal(data) {
-      portalData = data;
+    async function signInWithGoogle(intendedPortal) {
+      localStorage.setItem('lchs_intended_portal', intendedPortal);
+      await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname }
+      });
+    }
+
+    async function signOutGoogle() {
+      await supabaseClient.auth.signOut();
+      window.location.reload();
+    }
+
+    async function handleAuthenticatedUser(session) {
+      currentSession = session;
+      const user = session.user;
+      document.getElementById('authGateCard').classList.add('d-none');
+      document.getElementById('btnSignOut').classList.remove('d-none');
+
+      // Fetch user's assigned role from public.User_Roles
+      const { data: roleRecord } = await supabaseClient
+        .from('User_Roles')
+        .select('role, full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      currentUserRole = roleRecord ? roleRecord.role : 'client';
+      const displayName = (roleRecord && roleRecord.full_name) || user.user_metadata?.full_name || user.email;
+
+      if (currentUserRole === 'teacher' || currentUserRole === 'student') {
+        document.getElementById('viewShopTerminal').classList.remove('d-none');
+        document.getElementById('terminalHeading').textContent = currentUserRole === 'teacher' ? 'Instructor Management Console' : 'Student Shop Floor Terminal';
+        document.getElementById('terminalRoleBadge').textContent = `Signed in as ${displayName} (${currentUserRole.toUpperCase()})`;
+        loadShopJobs();
+      } else {
+        document.getElementById('viewClientDashboard').classList.remove('d-none');
+        document.getElementById('clientDashboardName').textContent = `Welcome, ${displayName}`;
+        document.getElementById('clientDashboardEmail').textContent = user.email;
+        loadClientHistory();
+      }
+    }
+
+    // Pulls real Base_Price from Services_Catalog
+    function initServiceCatalog(services) {
       let container = document.getElementById('serviceCardsContainer');
       container.innerHTML = '';
-      
-      let savedService = document.getElementById('serviceSelect').value;
+      if (!services || services.length === 0) {
+        container.innerHTML = '<div class="col-12 text-muted">No active service packages found in catalog.</div>';
+        return;
+      }
 
-      data.services.forEach(s => {
-        let price = Number(s.basePrice || 0);
-        let hours = Number(s.estimatedLaborHours || 1);
-        let category = s.category || 'General Repair';
-        let isSelected = (savedService === s.name);
+      services.forEach((s, idx) => {
+        let price = Number(s.basePrice ?? s.Base_Price ?? 0);
+        let category = s.category || 'General Service';
         
         let col = document.createElement('div');
         col.className = 'col-md-6';
         col.innerHTML = `
-          <div class="service-card ${isSelected ? 'selected' : ''}" onclick="selectServiceCard(this, '${s.name}', ${price})">
+          <div class="service-card" id="card-${idx}" onclick="toggleServiceCard(${idx})">
             <div class="d-flex justify-content-between align-items-start mb-1">
-              <h6 class="font-weight-bold text-dark mb-0">${s.name}</h6>
-              <span class="badge bg-success">$${price.toFixed(2)}</span>
+              <div class="form-check">
+                <input class="form-check-input service-checkbox" type="checkbox" value="${s.name}" data-price="${price}" id="chk-${idx}" onclick="event.stopPropagation(); toggleServiceCard(${idx})">
+                <label class="form-check-label font-weight-bold text-dark" for="chk-${idx}">${s.name}</label>
+              </div>
+              <span class="badge bg-dark">$${price.toFixed(2)}</span>
             </div>
-            <small class="text-muted d-block mb-2">Category: ${category} &bull; Est. ${hours} hr(s)</small>
+            <small class="text-muted d-block ms-4">Category: ${category} &bull; Labor (No GST)</small>
           </div>
         `;
         container.appendChild(col);
       });
-      calculatePrices();
+      calculateClientEstimate();
     }
 
-    function selectServiceCard(cardElement, serviceName, servicePrice) {
-      document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
-      cardElement.classList.add('selected');
-      document.getElementById('serviceSelect').value = serviceName;
-      calculatePrices();
-      saveClientState();
+    function toggleServiceCard(idx) {
+      let chk = document.getElementById(`chk-${idx}`);
+      let card = document.getElementById(`card-${idx}`);
+      chk.checked = !chk.checked;
+      card.classList.toggle('selected', chk.checked);
+      calculateClientEstimate();
     }
 
-    function calculatePrices() {
-      let selectedServiceName = document.getElementById('serviceSelect').value;
-      if (!selectedServiceName) {
-        document.getElementById('dispBase').textContent = '$0.00';
-        document.getElementById('dispFee').textContent = '$0.00';
-        document.getElementById('dispSub').textContent = '$0.00';
-        document.getElementById('dispGST').textContent = '$0.00';
-        document.getElementById('displayTotal').textContent = '$0.00';
-        return;
-      }
+    // GST is calculated ONLY on Parts + Shop Supplies (NOT Labor/Services)
+    function calculateClientEstimate() {
+      let laborTotal = 0;
+      let count = 0;
+      document.querySelectorAll('.service-checkbox').forEach(chk => {
+        if (chk.checked) {
+          laborTotal += parseFloat(chk.dataset.price) || 0;
+          count++;
+        }
+      });
 
-      let matchedService = (portalData.services || []).find(s => s.name === selectedServiceName);
-      let base = matchedService ? Number(matchedService.basePrice || 0) : 0;
-      let fee = portalData.settings.shopFee || 10;
-      let sub = base + fee;
-      let gst = sub * (portalData.settings.gstRate || 0.05);
-      let total = sub + gst;
+      let shopFee = count > 0 ? (portalData.settings.shopFee ?? 10.00) : 0;
+      let subtotal = laborTotal + shopFee;
+      // 5% GST applies only to shop supplies/parts, NOT labor
+      let gst = shopFee * (portalData.settings.gstRate || 0.05);
+      let total = subtotal + gst;
 
-      document.getElementById('dispBase').textContent = `$${base.toFixed(2)}`;
-      document.getElementById('dispFee').textContent = `$${fee.toFixed(2)}`;
-      document.getElementById('dispSub').textContent = `$${sub.toFixed(2)}`;
+      document.getElementById('dispLabor').textContent = `$${laborTotal.toFixed(2)}`;
+      document.getElementById('dispFee').textContent = `$${shopFee.toFixed(2)}`;
+      document.getElementById('dispSub').textContent = `$${subtotal.toFixed(2)}`;
       document.getElementById('dispGST').textContent = `$${gst.toFixed(2)}`;
       document.getElementById('displayTotal').textContent = `$${total.toFixed(2)}`;
     }
 
-    function saveClientState() {
-      let state = {
-        vin: document.getElementById('vinInput').value,
-        year: document.getElementById('vehicleYear').value,
-        make: document.getElementById('vehicleMake').value,
-        model: document.getElementById('vehicleModel').value,
-        odometer: document.getElementById('vehicleOdometer').value,
-        firstName: document.getElementById('customerFirstName').value,
-        lastName: document.getElementById('customerLastName').value,
-        phone: document.getElementById('customerPhone').value,
-        address: document.getElementById('customerAddress').value,
-        postal: document.getElementById('customerPostal').value,
-        email: document.getElementById('customerEmail').value,
-        service: document.getElementById('serviceSelect').value,
-        description: document.getElementById('customDescription').value,
-        date: document.getElementById('preferredDate').value,
-        signature: document.getElementById('digitalSignature').value,
-        authorized: document.getElementById('workAuthorized').checked
-      };
-      sessionStorage.setItem('lchs_client_state', JSON.stringify(state));
-    }
-
-    function restoreClientState() {
-      let saved = sessionStorage.getItem('lchs_client_state');
-      if (!saved) return;
-      try {
-        let s = JSON.parse(saved);
-        document.getElementById('vinInput').value = s.vin || '';
-        document.getElementById('vehicleYear').value = s.year || '';
-        document.getElementById('vehicleMake').value = s.make || '';
-        document.getElementById('vehicleModel').value = s.model || '';
-        document.getElementById('vehicleOdometer').value = s.odometer || '';
-        document.getElementById('customerFirstName').value = s.firstName || '';
-        document.getElementById('customerLastName').value = s.lastName || '';
-        document.getElementById('customerPhone').value = s.phone || '';
-        document.getElementById('customerAddress').value = s.address || '';
-        document.getElementById('customerPostal').value = s.postal || '';
-        document.getElementById('customerEmail').value = s.email || '';
-        document.getElementById('serviceSelect').value = s.service || '';
-        document.getElementById('customDescription').value = s.description || '';
-        document.getElementById('preferredDate').value = s.date || '';
-        document.getElementById('digitalSignature').value = s.signature || '';
-        document.getElementById('workAuthorized').checked = s.authorized || false;
-      } catch(e) {}
-    }
-
-    function clearClientStorage() {
-      sessionStorage.removeItem('lchs_client_state');
-    }
-
-    function showView(viewId) {
-      document.querySelectorAll('.app-view').forEach(el => el.classList.remove('active'));
-      document.getElementById('view' + viewId.charAt(0).toUpperCase() + viewId.slice(1)).classList.add('active');
-    }
-
-    function showLogin(role) {
-      showView('login');
-      document.getElementById('loginRole').value = role;
-      document.getElementById('loginTitle').textContent = role === 'teacher' ? 'Instructor Console Login' : 'Student Terminal Login';
-    }
-
-    function performLogin() {
-      let email = document.getElementById('loginEmail').value.trim();
-      let desk = document.getElementById('loginDesk').value.trim();
-      let role = document.getElementById('loginRole').value;
-      if (!email || !desk) { alert("Enter both email and desk."); return; }
-
-      currentUser = { email, role };
-      if (role === 'teacher') {
-        showView('teacher');
-        loadTeacherJobs();
+    function switchClientTab(tab) {
+      document.querySelectorAll('#clientTabs .nav-link').forEach(el => el.classList.remove('active'));
+      if (tab === 'booking') {
+        document.getElementById('tabLinkBooking').classList.add('active');
+        document.getElementById('clientTabBooking').classList.remove('d-none');
+        document.getElementById('clientTabHistory').classList.add('d-none');
       } else {
-        showView('student');
-        loadStudentJobs();
+        document.getElementById('tabLinkHistory').classList.add('active');
+        document.getElementById('clientTabHistory').classList.remove('d-none');
+        document.getElementById('clientTabBooking').classList.add('d-none');
       }
     }
 
-    function loadTeacherJobs() {
-      fetch(`${WORKER_BASE}/api/getAllShopJobs`)
-        .then(res => res.json())
-        .then(jobs => renderJobs(jobs, 'teacherJobList', true))
-        .catch(() => document.getElementById('teacherJobList').innerHTML = '<div class="alert alert-info">Demo Mode: No active jobs returned.</div>');
+    function loadClientHistory() {
+      fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
+        headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
+      })
+      .then(res => res.json())
+      .then(jobs => {
+        const container = document.getElementById('clientHistoryList');
+        if (!Array.isArray(jobs) || jobs.length === 0) {
+          container.innerHTML = '<div class="alert alert-light border">No previous service records found for your account.</div>';
+          return;
+        }
+        container.innerHTML = jobs.map(j => `
+          <div class="p-3 bg-light border rounded mb-2">
+            <div class="d-flex justify-content-between">
+              <strong>${j.orderId} &mdash; ${j.vehicleYear} ${j.vehicleMake} ${j.vehicleModel}</strong>
+              <span class="badge ${getBadgeClass(j.status)}">${j.status}</span>
+            </div>
+            <small class="text-muted">Odometer: ${j.odometer || 'N/A'} km &bull; Services: ${j.service} &bull; Total: $${Number(j.totalEstimate).toFixed(2)}</small>
+          </div>
+        `).join('');
+      });
     }
 
-    function loadStudentJobs() {
-      fetch(`${WORKER_BASE}/api/getAllShopJobs`)
-        .then(res => res.json())
-        .then(jobs => renderJobs(jobs, 'studentJobList', false))
-        .catch(() => document.getElementById('studentJobList').innerHTML = '<div class="alert alert-info">Demo Mode: No active jobs returned.</div>');
-    }
-
-    function renderJobs(jobs, containerId, isTeacher) {
-      let container = document.getElementById(containerId);
-      if (!jobs || jobs.length === 0) {
-        container.innerHTML = '<div class="alert alert-info">No work orders recorded.</div>';
-        return;
-      }
-      let html = '';
-      jobs.forEach((j, idx) => {
-        html += `
+    function loadShopJobs() {
+      fetch(`${WORKER_BASE}/api/getAllShopJobs`, {
+        headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
+      })
+      .then(res => res.json())
+      .then(jobs => {
+        shopJobs = Array.isArray(jobs) ? jobs : [];
+        const container = document.getElementById('shopJobList');
+        if (shopJobs.length === 0) {
+          container.innerHTML = `<div class="col-12"><div class="alert alert-info">No work orders assigned to your account.</div></div>`;
+          return;
+        }
+        container.innerHTML = shopJobs.map((j, idx) => `
           <div class="col-md-6">
             <div class="card p-3 border shadow-sm h-100">
-              <h5 class="text-success mb-2">${j.orderId} - ${j.vehicleMake || ''} ${j.vehicleModel || ''}</h5>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="text-dark mb-0">${j.orderId}</h5>
+                <span class="badge ${getBadgeClass(j.status)}">${j.status}</span>
+              </div>
+              <p class="mb-1"><strong>Vehicle:</strong> ${j.vehicleYear || ''} ${j.vehicleMake || ''} ${j.vehicleModel || ''}</p>
               <p class="mb-1"><strong>Client:</strong> ${j.customerName}</p>
-              <p class="mb-1"><strong>Odometer:</strong> ${j.odometer || 'N/A'} km</p>
-              <p class="mb-3"><strong>Status:</strong> <span class="badge bg-secondary">${j.status || 'Requested'}</span></p>
-              <button class="btn btn-sm btn-success w-100 mt-auto" onclick="openDiagnosticModal(${idx}, ${isTeacher})">Open 10-Step Diagnostic Form</button>
+              <p class="mb-1"><strong>Assigned Tech:</strong> ${j.studentAssigned || 'Unassigned'}</p>
+              <p class="mb-3"><strong>Total Estimate:</strong> $${Number(j.totalEstimate || 0).toFixed(2)}</p>
+              <button class="btn btn-sm btn-dark w-100 mt-auto" onclick="openEditorModal(${idx})">Open Work Order Editor</button>
             </div>
-          </div>`;
+          </div>
+        `).join('');
       });
-      container.innerHTML = html;
     }
 
-    function openDiagnosticModal(idx, isTeacher) {
-      let j = { orderId: 'WO-2026-001', customerName: 'Jane Doe', customerAddress: '123 Main St', customerPostal: 'T4L 2B3', vehicleMake: 'Honda', vehicleModel: 'Civic', vehicleYear: 2018, odometer: 84200 };
-      activeJob = j;
+    function getBadgeClass(status) {
+      if (!status) return 'bg-warning text-dark';
+      const s = status.toLowerCase();
+      if (s.includes('complete')) return 'bg-secondary'; // Grey
+      if (s.includes('approve') || s.includes('progress')) return 'bg-success'; // Green
+      if (s.includes('counter') || s.includes('reschedule')) return 'badge-orange'; // Orange
+      if (s.includes('decline') || s.includes('reject')) return 'bg-danger'; // Red
+      return 'bg-warning text-dark'; // Yellow (Requires Attention / New / Student Update)
+    }
 
-      let body = document.getElementById('diagnosticFormBody');
-      let clientInfoSection = isTeacher ? `
-        <div class="p-3 bg-light rounded mb-3 border">
-          <h6>Customer Information (Instructor View)</h6>
-          <p class="mb-1"><strong>Name:</strong> ${j.customerName}</p>
-          <p class="mb-1"><strong>Address:</strong> ${j.customerAddress}, ${j.customerPostal}</p>
-        </div>` : `
-        <div class="p-3 bg-light rounded mb-3 border">
-          <h6>Vehicle Identification</h6>
-          <p class="mb-1"><strong>Vehicle:</strong> ${j.vehicleYear} ${j.vehicleMake} ${j.vehicleModel}</p>
-          <p class="mb-0"><strong>Odometer:</strong> ${j.odometer} km</p>
-        </div>`;
+    function openEditorModal(idx) {
+      const j = shopJobs[idx];
+      document.getElementById('editorModalTitle').textContent = `Work Order Editor: ${j.orderId}`;
+      document.getElementById('editOrderId').value = j.orderId;
+      document.getElementById('editCustomerEmail').value = j.customerEmail;
+      document.getElementById('editCustomerName').value = j.customerName;
+      document.getElementById('editStudentAssigned').value = j.studentAssigned || '';
+      document.getElementById('editStudentAssignedEmail').value = j.studentAssignedEmail || '';
+      document.getElementById('editNotes').value = j.notes || '';
+      document.getElementById('calcShopFee').value = j.shopFee ?? 10.00;
 
-      body.innerHTML = `
-        ${clientInfoSection}
-        <div class="alert alert-success small">
-          <strong>Instruction:</strong> Please follow the steps carefully, answer guiding questions, and attach photo evidence where helpful.
-        </div>
-        <form id="diagnosticForm">
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 1: Understand the Issue or Concern</label><textarea class="form-control" rows="2" placeholder="Symptoms, customer explanations..."></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 2: Repair History & Recurring Due Intervals</label><textarea class="form-control" rows="2" placeholder="Recent service work, elapsed months check..."></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 3: Verify the Concern (Intermittent?)</label><textarea class="form-control" rows="2"></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 4: Technical Service Bulletins (TSBs)</label><textarea class="form-control" rows="2" placeholder="TSB reference #..."></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 5: Understand Normal Component Operation</label><textarea class="form-control" rows="2"></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 6: Visual Inspection & Photos</label><textarea class="form-control" rows="2" placeholder="Corrosion, disconnected wiring..."></textarea><input type="file" class="form-control mt-2" accept="image/*"></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 7: Component Testing</label><textarea class="form-control" rows="2"></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 8: Root Cause Analysis</label><textarea class="form-control" rows="2"></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 9: Solution Determination & Execution</label><textarea class="form-control" rows="2"></textarea></div>
-          <div class="mb-3"><label class="form-label font-weight-bold">Step 10: Repair Verification</label><textarea class="form-control" rows="2"></textarea></div>
-        </form>
+      const isTeacher = currentUserRole === 'teacher';
+      document.getElementById('instructorControlsRow').style.display = isTeacher ? 'flex' : 'none';
+      document.getElementById('studentNoticeBanner').classList.toggle('d-none', isTeacher);
+      document.getElementById('saveOrderBtn').textContent = isTeacher ? 'Approve & Save Changes' : 'Submit Changes to Instructor';
+
+      const body = document.getElementById('lineItemsTableBody');
+      body.innerHTML = '';
+      const items = (j.lineItems && j.lineItems.length > 0) ? j.lineItems : [{ type: 'Labor', name: j.service || 'Inspection', price: 0 }];
+      items.forEach(item => addInvoiceLineItem(item.type || 'Labor', item.name, item.price));
+      recalculateInvoiceTotals();
+
+      new bootstrap.Modal(document.getElementById('editorModal')).show();
+    }
+
+    function addInvoiceLineItem(type, name, price) {
+      const body = document.getElementById('lineItemsTableBody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <select class="form-select form-select-sm item-type" onchange="recalculateInvoiceTotals()">
+            <option value="Part" ${type === 'Part' ? 'selected' : ''}>Part (5% GST)</option>
+            <option value="Labor" ${type !== 'Part' ? 'selected' : ''}>Labor / Service (No GST)</option>
+          </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm item-name" value="${name}"></td>
+        <td><input type="number" class="form-control form-control-sm item-price text-end" value="${Number(price).toFixed(2)}" step="0.01" oninput="recalculateInvoiceTotals()"></td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalculateInvoiceTotals();">&times;</button></td>
       `;
-
-      new bootstrap.Modal(document.getElementById('diagnosticModal')).show();
+      body.appendChild(tr);
+      recalculateInvoiceTotals();
     }
 
-    function saveDiagnosticForm() {
-      alert("10-Step Diagnostic record saved successfully.");
-      bootstrap.Modal.getInstance(document.getElementById('diagnosticModal')).hide();
+    function recalculateInvoiceTotals() {
+      let partsSub = 0;
+      let laborSub = 0;
+
+      document.querySelectorAll('#lineItemsTableBody tr').forEach(tr => {
+        const type = tr.querySelector('.item-type').value;
+        const price = parseFloat(tr.querySelector('.item-price').value) || 0;
+        if (type === 'Part') {
+          partsSub += price;
+        } else {
+          laborSub += price;
+        }
+      });
+
+      const shopFee = parseFloat(document.getElementById('calcShopFee').value) || 0;
+      const taxableAmount = partsSub + shopFee;
+      const gst = taxableAmount * 0.05;
+      const total = partsSub + laborSub + shopFee + gst;
+
+      document.getElementById('calcLaborSub').textContent = `$${laborSub.toFixed(2)}`;
+      document.getElementById('calcPartsSub').textContent = `$${partsSub.toFixed(2)}`;
+      document.getElementById('calcGst').textContent = `$${gst.toFixed(2)}`;
+      document.getElementById('calcTotal').textContent = `$${total.toFixed(2)}`;
     }
 
-    function decodeVehicleVIN() {
-      let vin = document.getElementById('vinInput').value.trim();
-      if (vin.length !== 17) { alert("Enter a valid 17-digit VIN."); return; }
-      document.getElementById('vehicleYear').value = 2019;
-      document.getElementById('vehicleMake').value = 'Honda';
-      document.getElementById('vehicleModel').value = 'CR-V';
-      document.getElementById('vehicleYear').classList.add('vin-autofilled');
-      document.getElementById('vehicleMake').classList.add('vin-autofilled');
-      document.getElementById('vehicleModel').classList.add('vin-autofilled');
-      saveClientState();
+    function saveAndDispatchOrder() {
+      const lineItems = [];
+      document.querySelectorAll('#lineItemsTableBody tr').forEach(tr => {
+        lineItems.push({
+          type: tr.querySelector('.item-type').value,
+          name: tr.querySelector('.item-name').value,
+          price: parseFloat(tr.querySelector('.item-price').value) || 0
+        });
+      });
+
+      const isTeacher = currentUserRole === 'teacher';
+      const action = isTeacher ? document.getElementById('editDecisionAction').value : 'STUDENT_SUBMIT';
+
+      const payload = {
+        orderId: document.getElementById('editOrderId').value,
+        customerEmail: document.getElementById('editCustomerEmail').value,
+        customerName: document.getElementById('editCustomerName').value,
+        action: action,
+        studentAssigned: document.getElementById('editStudentAssigned').value,
+        studentAssignedEmail: document.getElementById('editStudentAssignedEmail').value,
+        shopFee: parseFloat(document.getElementById('calcShopFee').value) || 0,
+        decisionNotes: document.getElementById('editNotes').value,
+        lineItems: lineItems
+      };
+
+      fetch(`${WORKER_BASE}/api/processTeacherDecision`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(() => {
+        bootstrap.Modal.getInstance(document.getElementById('editorModal')).hide();
+        loadShopJobs();
+      });
     }
+
+    function handleVinTyping(val) {
+      const vin = val.trim().toUpperCase();
+      if (vin.length === 17) {
+        fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${vin}?format=json`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.Results && data.Results.length > 0) {
+              const v = data.Results[0];
+              if (v.ModelYear) document.getElementById('vehicleYear').value = v.ModelYear;
+              if (v.Make) document.getElementById('vehicleMake').value = v.Make;
+              if (v.Model) document.getElementById('vehicleModel').value = v.Model;
+              document.getElementById('vehicleYear').classList.add('vin-autofilled');
+              document.getElementById('vehicleMake').classList.add('vin-autofilled');
+              document.getElementById('vehicleModel').classList.add('vin-autofilled');
+            }
+          }).catch(() => {});
+      }
+    }
+
+    function decodeVehicleVIN() { handleVinTyping(document.getElementById('vinInput').value); }
 
     function goToStep(s) {
       document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
       document.getElementById('section-' + s).classList.add('active');
-      saveClientState();
-    }
-
-    function validateStep1() {
-      if (!document.getElementById('vehicleYear').value || !document.getElementById('customerFirstName').value) {
-        alert("Please complete required fields in Step 1."); return;
-      }
-      goToStep(2);
-    }
-
-    function validateStep2() {
-      if (!document.getElementById('serviceSelect').value || !document.getElementById('preferredDate').value) {
-        alert("Please select a service package and drop-off date."); return;
-      }
-      goToStep(3);
-    }
-
-    function handleClientGoogleSignIn(response) {
-      alert("Google Sign-In authenticated successfully. Loading past vehicle records...");
-      document.getElementById('clientAccountBadge').textContent = "Signed in as Client (Google Workspace)";
     }
 
     function handleFormSubmit(e) {
       e.preventDefault();
-      let service = document.getElementById('serviceSelect').value;
-      let matchedService = (portalData.services || []).find(s => s.name === service);
-      let base = matchedService ? Number(matchedService.basePrice || 0) : 0;
-      let fee = portalData.settings.shopFee || 10;
-      let sub = base + fee;
-      let gst = sub * (portalData.settings.gstRate || 0.05);
-      let total = sub + gst;
+      const lineItems = [];
+      document.querySelectorAll('.service-checkbox').forEach(chk => {
+        if (chk.checked) {
+          lineItems.push({ type: 'Labor', name: chk.value, price: parseFloat(chk.dataset.price) || 0 });
+        }
+      });
 
-      let formData = {
-        customerName: `${document.getElementById('customerFirstName').value} ${document.getElementById('customerLastName').value}`,
-        customerEmail: document.getElementById('customerEmail').value,
+      const user = currentSession.user;
+      const formData = {
+        customerName: user.user_metadata?.full_name || user.email.split('@')[0],
+        customerEmail: user.email,
         customerPhone: document.getElementById('customerPhone').value,
         vehicleYear: document.getElementById('vehicleYear').value,
         vehicleMake: document.getElementById('vehicleMake').value,
         vehicleModel: document.getElementById('vehicleModel').value,
         odometer: document.getElementById('vehicleOdometer').value,
         vin: document.getElementById('vinInput').value,
-        serviceSelected: service,
+        serviceSelected: lineItems.map(i => i.name).join(', '),
+        customDescription: document.getElementById('customDescription').value,
         preferredDate: document.getElementById('preferredDate').value,
-        shopFee: fee,
-        subtotal: sub,
-        gst: gst,
-        totalEstimate: total,
-        lineItems: [{ type: 'Service', name: service, price: base }]
+        shopFee: portalData.settings.shopFee ?? 10.00,
+        lineItems: lineItems
       };
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
 
       fetch(`${WORKER_BASE}/api/submitWorkOrder`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`
+        },
         body: JSON.stringify(formData)
       })
       .then(res => res.json())
       .then(res => {
-        clearClientStorage();
         document.getElementById('workOrderForm').classList.add('d-none');
         document.getElementById('successMessage').classList.remove('d-none');
-        document.getElementById('outOrderId').textContent = res.invoiceNumber || 'WO-2026-999';
-      })
-      .catch(() => {
-        clearClientStorage();
-        document.getElementById('workOrderForm').classList.add('d-none');
-        document.getElementById('successMessage').classList.remove('d-none');
-        document.getElementById('outOrderId').textContent = 'WO-2026-DEMO';
+        document.getElementById('outOrderId').textContent = res.invoiceNumber;
       });
     }
   </script>
